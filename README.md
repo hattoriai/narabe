@@ -1,5 +1,7 @@
 # Narabe
 
+![Narabe — Lists, trees and boards for Phoenix](https://raw.githubusercontent.com/hattoriai/narabe/main/media/banner.png)
+
 並べ (*narabe*): to line up, to put in order.
 
 Lists, trees and boards that people reorder, for Phoenix LiveView, with

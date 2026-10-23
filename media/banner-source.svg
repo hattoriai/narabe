@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800" role="img" aria-labelledby="title description">
+<title id="title">Narabe — Lists, trees and boards for Phoenix</title>
+<desc id="description">Four rows in Sumi ink, one lifted out of line in blade orange. Cormorant Garamond wordmark and Outfit supporting text.</desc>
+<rect width="1600" height="800" fill="#f5f0e8"/>
+<g transform="translate(297.4 254) scale(2.2)"><rect x="16" y="16" width="64" height="16" rx="8" fill="#0a0a0b"/>
+<rect x="32" y="40" width="64" height="16" rx="8" fill="#e84a1c"/>
+<rect x="16" y="64" width="64" height="16" rx="8" fill="#0a0a0b"/>
+<rect x="16" y="88" width="64" height="16" rx="8" fill="#0a0a0b"/></g>
+<path d="M128 109H160" fill="none" stroke="#e84a1c" stroke-width="2"/>
+<text x="587" y="423" font-family="Cormorant Garamond" font-weight="300" font-size="160" letter-spacing="19.2" fill="#0a0a0b">NARABE</text>
+<text x="594" y="484" font-family="Outfit" font-weight="300" font-size="28" fill="#0a0a0b">Lists, trees and boards for Phoenix.</text>
+<text x="181" y="115" font-family="Outfit" font-weight="500" font-size="16" letter-spacing="3.2" fill="#0a0a0b">HATTORI AI</text>
+</svg>
