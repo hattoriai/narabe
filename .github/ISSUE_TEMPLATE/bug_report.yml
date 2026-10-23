@@ -29,8 +29,10 @@ body:
     attributes:
       label: Where it happens
       options:
-        - In the browser (a picker, its list, typing, the keyboard)
-        - On the server (Narabe.Rules, Narabe.Changeset, Narabe.Live, a search)
+        - In the browser (a drag, a finger, the keyboard, a screen reader)
+        - On the server (Narabe.Ecto, Narabe.Move, Narabe.Rules, Narabe.Live)
+        - The database (Postgres, MySQL, SQLite)
+        - Collaboration (Narabe.Issho)
         - Both
         - Narabe.Test
         - mix narabe.install
@@ -38,17 +40,17 @@ body:
       required: true
 
   - type: input
-    id: picker
+    id: component
     attributes:
-      label: Picker
-      description: The picker, if any.
-      placeholder: "multi_select"
+      label: Component
+      description: The component, if any.
+      placeholder: "tree"
 
   - type: input
     id: locale
     attributes:
       label: Locale
-      description: The `locale` of the picker, and the browser's language.
+      description: The `locale` of the list, and the browser's language.
       placeholder: "ja-JP"
 
   - type: input
@@ -62,8 +64,8 @@ body:
   - type: textarea
     id: repro
     attributes:
-      label: The smallest picker or code that shows it
-      description: The picker and its attributes, options and rules, the schema field and the changeset, or the call that gives the wrong result. Or a link to a small repository.
+      label: The smallest list or code that shows it
+      description: The component and its attributes and rules, the schema and its `use Narabe.Ordered`, or the call that gives the wrong result. Or a link to a small repository.
       render: elixir
     validations:
       required: true
@@ -73,8 +75,8 @@ body:
     attributes:
       label: Steps
       placeholder: |
-        1. Open the labels picker
-        2. Type "doc" and press Enter
+        1. Open the Pages tree
+        2. Drag "Intro" into the closed "Docs" folder
         3. ...
     validations:
       required: true

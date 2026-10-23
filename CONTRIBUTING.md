@@ -8,10 +8,10 @@ development server and run the tests is in the README, under
 
 ## Questions, bugs and ideas
 
-- **A bug.** Open an issue with the bug report form. The smallest picker
-  that shows it (the component, its attributes, options and rules, and
-  the field of the schema) is the most useful thing you can give, with
-  the locale and the browser.
+- **A bug.** Open an issue with the bug report form. The smallest list
+  that shows it (the component, its attributes and rules, the schema and
+  the database) is the most useful thing you can give, with the browser
+  and the device.
 - **An idea or a change of behaviour.** Open an issue with the feature
   request form, and say the problem before the solution.
 - **A security problem.** Do not open an issue. See
@@ -26,9 +26,9 @@ or turned down for a reason given there. The known gaps are in
 
 Open an issue, and agree on the change there, before a pull request that:
 
-- adds a picker, an attribute, a key of an option, a rule or a
-  language of the words;
-- changes what a picker posts, what a rule accepts, how options match, or
+- adds a component, an attribute, a rule, a database or a language of
+  the words;
+- changes what a list sends, what a rule accepts, how keys are made, or
   the public API;
 - changes the events and values between the hook and the LiveView;
 - adds a dependency, in `mix.exs` or in `assets/`;
@@ -49,11 +49,13 @@ A pull request with an issue says so: `Fixes #123` or `Closes #123`.
   on its own.
 - **Why, not only what.** The description says the problem the change
   solves, for whom, and what happened before it: an error, a wrong value,
-  a value the changeset refused. Say why a number was chosen when the
+  a move refused or let through. Say why a number was chosen when the
   change adds one.
 - **Tests.** A bug fix has a test that fails on `main` and passes with
   the fix. A feature has tests of what it does, and of its errors. A rule
-  that both the browser and the server check is tested on both sides.
+  that both the browser and the server check is tested on both sides
+  (`test/fixtures`), and a change to `Narabe.Ecto` on Postgres, MySQL and
+  SQLite (`NARABE_DBS` picks them; all three by default).
 - **Docs.** A change a user can see updates the guide it belongs to and
   the `[Unreleased]` section of [CHANGELOG.md](CHANGELOG.md).
 - **The checks pass.** CI runs them; run them first:

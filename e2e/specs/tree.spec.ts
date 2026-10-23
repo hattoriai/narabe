@@ -30,6 +30,23 @@ test("a drag into a closed folder puts the page at its end", async ({ page }) =>
   expect(await lastMove(page)).toMatchObject({ parent: String(await row(page, "Projects").getAttribute("data-id")) });
 });
 
+test("a closed folder held under a drag opens", async ({ page }) => {
+  await openPage(page, "/tree");
+  const a = (await row(page, "Inbox").boundingBox())!;
+  const p = (await row(page, "Projects").boundingBox())!;
+  await page.mouse.move(a.x + 60, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + 60, a.y + 20, { steps: 2 });
+  await page.mouse.move(p.x + 60, p.y + p.height / 2, { steps: 8 });
+  await expect(row(page, "Projects")).toHaveAttribute("aria-expanded", "true", { timeout: 2000 });
+  await expect(row(page, "Narabe")).toBeVisible();
+  // Then between Narabe and Erabi, as Projects' child.
+  const n = (await row(page, "Narabe").boundingBox())!;
+  await page.mouse.move(a.x + 80, n.y + n.height * 0.9, { steps: 6 });
+  await page.mouse.up();
+  await expect(order(page)).toContainText("Projects >Narabe >>Roadmap >Inbox >Erabi");
+});
+
 test("the pointer's left and right pick the depth", async ({ page }) => {
   await openPage(page, "/tree");
   await toggle(page, "Projects").click();

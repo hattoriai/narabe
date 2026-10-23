@@ -274,6 +274,13 @@ defmodule Narabe.EctoCases do
                    move_page("design", "roadmap", with: [rules: [nest: true, max_depth: 5]])
         end
 
+        test "a tree's rules nest unless they say not" do
+          assert {:ok, _} = move_page("roadmap", "narabe", with: [rules: [max_depth: 5]])
+
+          assert {:error, :not_accepted} =
+                   move_page("design", "roadmap", with: [rules: [nest: false]])
+        end
+
         test "kinds: a file holds nothing" do
           Repo.update_all(where(Page, title: "roadmap"), set: [kind: "file"])
 

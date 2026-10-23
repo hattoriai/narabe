@@ -65,7 +65,6 @@
   --narabe-refused: var(--color-error, var(--narabe-sumi-error));
   --narabe-hover: color-mix(in oklab, var(--narabe-text) 6%, var(--narabe-background));
   --narabe-selected: color-mix(in oklab, var(--narabe-accent) 12%, var(--narabe-background));
-  --narabe-focus-ring: 0 0 0 2px var(--narabe-background), 0 0 0 4px var(--narabe-accent);
   --narabe-shadow: 0 8px 24px color-mix(in oklab, var(--color-sumi-ink, #0a0a0b) 22%, transparent),
     0 0 0 1px var(--narabe-border);
   --narabe-card-shadow: 0 0 0 1px var(--narabe-border);

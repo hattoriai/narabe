@@ -60,7 +60,7 @@ defmodule Narabe.Tree do
 
     by_parent
     |> Map.get(:top, [])
-    |> walk(nil, 1, by_parent, lazy, MapSet.new(), [])
+    |> walk(nil, 1, by_parent, lazy, %{}, [])
     |> Enum.reverse()
   end
 
@@ -72,7 +72,7 @@ defmodule Narabe.Tree do
     siblings
     |> Enum.with_index()
     |> Enum.reduce(acc, fn {{id, item}, index}, acc ->
-      kids = if MapSet.member?(above, id), do: [], else: Map.get(by_parent, id, [])
+      kids = if Map.has_key?(above, id), do: [], else: Map.get(by_parent, id, [])
 
       row = %{
         item: item,
@@ -84,7 +84,7 @@ defmodule Narabe.Tree do
         children: kids != [] or !!lazy.(item)
       }
 
-      walk(kids, id, level + 1, by_parent, lazy, MapSet.put(above, id), [row | acc])
+      walk(kids, id, level + 1, by_parent, lazy, Map.put(above, id, true), [row | acc])
     end)
   end
 

@@ -118,6 +118,7 @@ defmodule Narabe.Test do
   @doc "A board's columns, in order: `{label, card labels}`."
   @spec columns(struct(), String.t()) :: [{String.t(), [String.t()]}]
   def columns(view, board_id) do
+    board_id = String.trim_leading(board_id, "#")
     html = view |> LiveViewTest.render() |> LazyHTML.from_fragment()
 
     html

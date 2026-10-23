@@ -34,7 +34,7 @@ defmodule Narabe.Position do
   Two moves into the same gap at the same moment get the same key: order
   by the key, then by id (`Narabe.Ecto.ordered/2`), and the order is the
   same on every screen. Keys grow only when items keep landing in the same
-  gap; `Narabe.Ecto.rebalance/4` spreads a list's keys out again.
+  gap; `Narabe.Ecto.rebalance/3` spreads a list's keys out again.
   """
 
   @digits "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"

@@ -134,7 +134,7 @@ defmodule Mix.Tasks.Narabe.Install do
     import in assets/css/app.css.
 
     Store each item's place in a position column (Narabe.Migration) and
-    apply moves with Narabe.Ecto.move/5; see the Database guide.
+    apply moves with Narabe.Ecto.move/4; see the Database guide.
 
     On a page without LiveView, the hook does not run. Import mountNarabe
     in the page's script and call it after the page loads:

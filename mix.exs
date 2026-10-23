@@ -105,8 +105,6 @@ defmodule Narabe.MixProject do
       main: "readme",
       source_ref: "v#{@version}",
       source_url: @source_url,
-      # The banner of the README, at the same relative path in the docs.
-      assets: %{"media" => "media"},
       extras: [
         "README.md",
         "guides/quickstart.md",
@@ -128,9 +126,9 @@ defmodule Narabe.MixProject do
         Reference: ["guides/accessibility.md", "guides/limits.md"]
       ],
       groups_for_modules: [
-        Components: [Narabe, Narabe.Components, Narabe.Live, Narabe.Messages],
+        Components: [Narabe, Narabe.Components, Narabe.Live, Narabe.Messages, Narabe.Tree],
         "Order and moves": [Narabe.Move, Narabe.Rules, Narabe.Position],
-        Database: [Narabe.Ecto, Narabe.Migration],
+        Database: [Narabe.Ecto, Narabe.Ordered, Narabe.Migration],
         "With Issho": [Narabe.Issho],
         Testing: [Narabe.Test]
       ]

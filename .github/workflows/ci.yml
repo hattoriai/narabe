@@ -9,6 +9,27 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # Narabe.Ecto's tests run on Postgres, MySQL and SQLite (in-process).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: narabe
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -pnarabe" --health-interval 5s --health-timeout 5s --health-retries 20
+
+    env:
+      NARABE_POSTGRES_URL: ecto://postgres:postgres@localhost/narabe_test
+      NARABE_MYSQL_URL: ecto://root:narabe@127.0.0.1/narabe_test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -45,7 +66,7 @@ jobs:
       - name: Seed fake assets
         run: |
           mkdir -p priv/static
-          touch priv/static/narabe.esm.js priv/static/narabe.cjs.js priv/static/narabe-color.esm.js priv/static/narabe-color.cjs.js priv/static/narabe-emoji.esm.js priv/static/narabe-emoji.cjs.js priv/static/narabe.css priv/static/narabe-sumi.css
+          touch priv/static/narabe.esm.js priv/static/narabe.cjs.js priv/static/narabe.css priv/static/narabe-sumi.css
 
       - run: mix format --check-formatted
 
@@ -79,8 +100,27 @@ jobs:
   floor:
     runs-on: ubuntu-latest
 
+    # Narabe.Ecto's tests run on Postgres, MySQL and SQLite (in-process).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: narabe
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -pnarabe" --health-interval 5s --health-timeout 5s --health-retries 20
+
     env:
       NARABE_OLDEST: "1"
+      NARABE_POSTGRES_URL: ecto://postgres:postgres@localhost/narabe_test
+      NARABE_MYSQL_URL: ecto://root:narabe@127.0.0.1/narabe_test
 
     steps:
       - uses: actions/checkout@v4
@@ -104,7 +144,7 @@ jobs:
       - name: Seed fake assets
         run: |
           mkdir -p priv/static
-          touch priv/static/narabe.esm.js priv/static/narabe.cjs.js priv/static/narabe-color.esm.js priv/static/narabe-color.cjs.js priv/static/narabe-emoji.esm.js priv/static/narabe-emoji.cjs.js priv/static/narabe.css priv/static/narabe-sumi.css
+          touch priv/static/narabe.esm.js priv/static/narabe.cjs.js priv/static/narabe.css priv/static/narabe-sumi.css
 
       # mix.lock has the newest Phoenix and LiveView: resolve the oldest.
       - run: mix deps.update phoenix phoenix_live_view

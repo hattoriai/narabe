@@ -61,12 +61,12 @@ defmodule Narabe.Messages do
 
   ## Examples
 
-      iex> Narabe.Messages.for_locale("pt-PT")["clear"]
-      "Limpar"
-      iex> Narabe.Messages.for_locale("sv")["clear"]
-      "Clear"
-      iex> Narabe.Messages.for_locale("en", %{"clear" => "Reset"})["clear"]
-      "Reset"
+      iex> Narabe.Messages.for_locale("pt-PT")["done"]
+      "Concluído"
+      iex> Narabe.Messages.for_locale("sv")["done"]
+      "Done"
+      iex> Narabe.Messages.for_locale("en", %{"done" => "Finished"})["done"]
+      "Finished"
 
   """
   @spec for_locale(String.t(), map()) :: %{String.t() => String.t()}

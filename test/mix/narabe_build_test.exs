@@ -7,7 +7,7 @@ defmodule Mix.Tasks.Narabe.BuildTest do
   @root Path.expand("../..", __DIR__)
   @static Path.join(@root, "priv/static")
   @files ~w(narabe.esm.js narabe.cjs.js narabe.css narabe-sumi.css)
-  @exports ~w(Narabe cellEditor narabeEditors mountNarabe)
+  @exports ~w(Narabe between betweenMany mountNarabe)
 
   @moduletag :build
   @moduletag timeout: 600_000
@@ -52,7 +52,7 @@ defmodule Mix.Tasks.Narabe.BuildTest do
     assert @static |> File.ls!() |> Enum.sort() == Enum.sort(@files)
   end
 
-  test "the ESM bundle exports the hook, mountNarabe and the cell editors" do
+  test "the ESM bundle exports the hook, mountNarabe and the position keys" do
     esm = File.read!(Path.join(@static, "narabe.esm.js"))
     [exports] = Regex.run(~r/export\{([^}]*)\}/, esm, capture: :all_but_first)
     names = exports |> String.split(",") |> Enum.map(&(&1 |> String.split(" as ") |> List.last()))
@@ -112,7 +112,7 @@ defmodule Mix.Tasks.Narabe.BuildTest do
       @describetag skip: "node is not on the path, so the CJS bundle cannot be required"
     end
 
-    test "require() of the package entry point gives the hook, mountNarabe and the cell editors" do
+    test "require() of the package entry point gives the hook, mountNarabe and the position keys" do
       script = """
       const narabe = require("./priv/static/narabe.cjs.js");
       process.stdout.write(JSON.stringify(Object.keys(narabe).sort()));

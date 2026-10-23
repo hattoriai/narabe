@@ -1,6 +1,6 @@
 ## Why
 
-<!-- The problem this solves, for whom, and what happened before it (an error, a wrong value, a value the changeset refused). -->
+<!-- The problem this solves, for whom, and what happened before it (an error, a wrong order, a move refused or let through). -->
 
 Fixes #<!-- the issue; see CONTRIBUTING.md for when a pull request needs one -->
 
@@ -10,7 +10,7 @@ Fixes #<!-- the issue; see CONTRIBUTING.md for when a pull request needs one -->
 
 ## How it was tested
 
-<!-- The tests added, and what you ran by hand (the browsers, the keyboard, a screen reader, locales). -->
+<!-- The tests added, and what you ran by hand (the browsers, a mouse, a finger, the keyboard, a screen reader, the databases). -->
 
 ## Checklist
 
@@ -20,5 +20,5 @@ Fixes #<!-- the issue; see CONTRIBUTING.md for when a pull request needs one -->
 - [ ] `npm run typecheck` (in `assets/`) and `mix test.js` pass, for a change to `assets/`.
 - [ ] `mix test.e2e` passes, for a change the browser sees.
 - [ ] The guides and the `[Unreleased]` section of `CHANGELOG.md` are updated, for a change a user can see.
-- [ ] Says so here if it changes the public API, or what a picker posts or does today.
+- [ ] Says so here if it changes the public API, or what a list sends or does today.
 - [ ] No changes to the version (the maintainers keep it).

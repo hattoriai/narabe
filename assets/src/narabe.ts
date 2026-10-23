@@ -38,6 +38,8 @@ interface Snapshot {
 }
 
 const PHONE = "(pointer: coarse) and (max-width: 640px)";
+/** How long a closed row is held under a drag before it opens (ms). */
+const SPRING = 700;
 const SR = "position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap";
 
 export class Narabe {
@@ -659,7 +661,8 @@ export class Narabe {
     const columnHandle = target.closest<HTMLElement>("[data-narabe-group-handle]");
     if (columnHandle && this.board && this.config.moveColumns) return this.columnDrag(e, columnHandle);
     const row = this.rowOf(target);
-    if (!row || !startsDrag(target, !!this.config.handle)) return;
+    // With handles, a finger still holds an item anywhere: a handle is small under a finger.
+    if (!row || !startsDrag(target, !!this.config.handle && e.pointerType !== "touch")) return;
     if (row.locked) return;
     const ids = this.moving(row);
     if (this.peers.holder(ids)) return;
@@ -687,6 +690,7 @@ export class Narabe {
   }
 
   private endDrag(): void {
+    this.springLoad(null, 0, 0);
     this.session = null;
     for (const row of rows(this.el)) row.el.classList.remove("narabe-lifted");
     this.el.classList.remove("narabe-moving");
@@ -731,6 +735,7 @@ export class Narabe {
     let gap: Gap;
     if (this.tree && nest && !this.drilling) {
       const zone = zoneAtY(others, rects, y, (r) => this.mayHold(r));
+      this.springLoad(zone.into && !this.expanded.has(zone.into.id) && zone.into.children ? zone.into.id : null, x, y);
       if (zone.into && !this.expanded.has(zone.into.id) && zone.into.children) {
         gap = inside(zone.into);
       } else if (zone.into) {
@@ -750,6 +755,26 @@ export class Narabe {
     this.target = { gap, rows: others, group, refusal: this.refusal(gap, group) };
     this.drawTarget();
     this.tellPlace();
+  }
+
+  // A closed row held under a drag for a moment opens, as a folder does in
+  // a file manager: the items may then land anywhere in it.
+  private spring: { id: string; timer: ReturnType<typeof setTimeout> } | null = null;
+
+  private springLoad(id: string | null, x: number, y: number): void {
+    if (this.spring?.id === id) return;
+    if (this.spring) clearTimeout(this.spring.timer);
+    this.spring = id
+      ? {
+          id,
+          timer: setTimeout(() => {
+            this.spring = null;
+            if (!this.session?.active) return;
+            this.expand(id, true);
+            this.pointerTarget(x, y);
+          }, SPRING),
+        }
+      : null;
   }
 
   /** The level shown, one level at a time. */
@@ -810,6 +835,8 @@ export class Narabe {
         const after = cols.find((g) => g.id === target!.after)?.el ?? null;
         if (after) after.after(column);
         else if (before) before.before(column);
+        // Dropped where it was: nothing to tell the server.
+        if (column.parentNode === snapshot[0]!.parent && column.nextSibling === snapshot[0]!.next) return;
         this.push({ v: 1, ids: [id], parent: null, after: target.after, before: target.before, index: target.index, columns: true }, () => {
           const s = snapshot[0]!;
           s.parent.insertBefore(s.el, s.next);

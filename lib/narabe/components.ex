@@ -47,7 +47,7 @@ defmodule Narabe.Components do
 
   # Attributes every component has.
   defp common(assigns, kind, rules_default) do
-    rules = Rules.new(assigns.rules || rules_default)
+    rules = rules(assigns.rules, rules_default)
     messages = Messages.for_locale(assigns.locale, assigns.messages)
     issho_join = issho_join(assigns[:issho], assigns[:user])
 
@@ -118,6 +118,11 @@ defmodule Narabe.Components do
     <.live_component :if={@join} module={Narabe.Issho.Presence} id={"#{@id}-issho"} list={@id} join={@join} user={@user} />
     """
   end
+
+  # A tree's rules nest unless they say not.
+  defp rules(nil, default), do: Rules.new(default)
+  defp rules(rules, default) when is_list(rules), do: Rules.new(Keyword.merge(default, rules))
+  defp rules(rules, _default), do: Rules.new(rules)
 
   # Nothing that is a default: no nil, no false.
   defp reject_nils(map), do: map |> Enum.reject(fn {_, v} -> v in [nil, false] end) |> Map.new()

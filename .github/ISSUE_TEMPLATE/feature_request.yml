@@ -19,7 +19,7 @@ body:
     id: proposal
     attributes:
       label: What you propose
-      description: How it would look to an app (a picker, an attribute, an option, a rule) and to the person at the picker. Say if it changes what a picker posts or does today.
+      description: How it would look to an app (a component, an attribute, a function, a rule) and to the person moving things. Say if it changes what a list sends or does today.
     validations:
       required: true
 

@@ -41,7 +41,8 @@ defmodule Narabe.Ecto do
 
   ## Options
 
-  Each option may be given to the call, or once in `use Narabe.Ordered`.
+  Each option may be given to the call, or once in `use Narabe.Ordered`,
+  but `:serialize`, which names the row of one call.
 
     * `:group` - the field of the scope that a move may change: a board's
       `:column_id`, a tree's `:parent_id`. Without it, the queryable is one
@@ -277,8 +278,9 @@ defmodule Narabe.Ecto do
       group: group,
       tree: tree,
       kind: Keyword.get(opts, :kind),
-      group_kind: Keyword.get(opts, :group_kind),
-      rules: opts |> Keyword.get(:rules, nest: tree) |> Rules.new(),
+      # A board's columns are "column" in the browser too.
+      group_kind: Keyword.get(opts, :group_kind, if(group && !tree, do: "column")),
+      rules: rules(Keyword.get(opts, :rules), tree),
       serialize: Keyword.get(opts, :serialize),
       lock: Keyword.get_lazy(opts, :lock, fn -> locks?(repo) end),
       rebalance_at: Keyword.get(opts, :rebalance_at, @rebalance_at)
@@ -441,16 +443,17 @@ defmodule Narabe.Ecto do
   # The levels of the moved items' subtrees: 1 for items with no children.
   defp height(ctx, ids) do
     children = ctx |> tree_rows(ids, :down) |> Enum.group_by(&elem(&1, 1), &elem(&1, 0))
-    levels(children, ids, 0, MapSet.new())
+    levels(children, ids, 0, %{})
   end
 
   defp levels(_children, [], n, _seen), do: n
 
+  # `seen` is a map of ids (not a MapSet: an opaque type through recursion).
   defp levels(children, ids, n, seen) do
-    seen = MapSet.union(seen, MapSet.new(ids))
+    seen = Enum.reduce(ids, seen, &Map.put(&2, &1, true))
 
     next =
-      ids |> Enum.flat_map(&Map.get(children, &1, [])) |> Enum.reject(&MapSet.member?(seen, &1))
+      ids |> Enum.flat_map(&Map.get(children, &1, [])) |> Enum.reject(&Map.has_key?(seen, &1))
 
     levels(children, next, n + 1, seen)
   end
@@ -582,4 +585,9 @@ defmodule Narabe.Ecto do
 
     length(ids)
   end
+
+  # A tree nests unless its rules say otherwise.
+  defp rules(nil, tree), do: Rules.new(nest: tree)
+  defp rules(rules, tree) when is_list(rules), do: Rules.new(Keyword.put_new(rules, :nest, tree))
+  defp rules(rules, _tree), do: Rules.new(rules)
 end
