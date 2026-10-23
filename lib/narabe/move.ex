@@ -53,7 +53,7 @@ defmodule Narabe.Move do
          {:ok, after_id} <- cast(params["after"], type),
          {:ok, before_id} <- cast(params["before"], type),
          {:ok, index} <- index(params["index"]),
-         :ok <- distinct(ids, [parent, after_id, before_id]) do
+         :ok <- distinct(ids, [after_id, before_id]) do
       {:ok,
        %__MODULE__{ids: ids, parent: parent, after: after_id, before: before_id, index: index}}
     end

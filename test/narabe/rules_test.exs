@@ -45,4 +45,10 @@ defmodule Narabe.RulesTest do
              "accepts" => %{"folder" => ["file", "folder"]}
            }
   end
+
+  test "a schema's rules: a tree nests by default" do
+    assert Narabe.Rules.new(NarabeTest.Page) == %Narabe.Rules{nest: true}
+    assert Narabe.Rules.new(NarabeTest.Card) == %Narabe.Rules{nest: false}
+    assert_raise ArgumentError, fn -> Narabe.Rules.new(String) end
+  end
 end

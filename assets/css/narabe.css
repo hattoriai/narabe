@@ -1,0 +1,581 @@
+/*
+ * Narabe: lists, trees and boards.
+ *
+ * Every colour, space, radius and font comes from a --narabe-* custom
+ * property. Set them on .narabe (or higher) to theme the lists, or load
+ * narabe-sumi.css to map them to the Sumi tokens. The defaults have no
+ * specificity, so a value set on :root, on an ancestor or on .narabe wins.
+ * They are Erabi's, so that a page with both looks like one thing.
+ *
+ * The defaults are light, and dark under data-theme="dark" (the attribute
+ * of Phoenix's themes) or the class "dark".
+ */
+
+:where(:root) {
+  --narabe-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --narabe-font-size: 0.9375rem;
+  --narabe-small: 0.8125rem;
+  --narabe-line-height: 1.4;
+  --narabe-text: #1f1f23;
+  --narabe-muted: #6b6b76;
+  --narabe-background: #ffffff;
+  --narabe-surface: #f6f6f7;
+  --narabe-border: #d9d9de;
+  --narabe-accent: #2f5bd3;
+  --narabe-accent-text: #ffffff;
+  --narabe-refused: #c62828;
+  --narabe-hover: color-mix(in oklab, var(--narabe-text) 5%, var(--narabe-background));
+  --narabe-selected: color-mix(in oklab, var(--narabe-accent) 13%, var(--narabe-background));
+  --narabe-match: color-mix(in oklab, #f5b400 40%, transparent);
+  --narabe-radius: 8px;
+  --narabe-inner-radius: 6px;
+  --narabe-row-height: 2.125rem;
+  --narabe-space: 0.5rem;
+  --narabe-indent: 20px;
+  --narabe-column-width: 17rem;
+  --narabe-card-gap: 0.375rem;
+  --narabe-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --narabe-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --narabe-transition: 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --narabe-focus-ring: 0 0 0 2px var(--narabe-background), 0 0 0 4px var(--narabe-accent);
+}
+
+:where([data-theme="dark"], .dark) {
+  --narabe-text: #ececf1;
+  --narabe-muted: #a0a0ab;
+  --narabe-background: #18181b;
+  --narabe-surface: #222226;
+  --narabe-border: #3a3a41;
+  --narabe-accent: #7b9cff;
+  --narabe-accent-text: #0d1330;
+  --narabe-refused: #ff7b72;
+  --narabe-match: color-mix(in oklab, #f5b400 35%, transparent);
+  --narabe-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --narabe-card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* -- The whole ------------------------------------------------------------ */
+
+.narabe {
+  position: relative;
+  font-family: var(--narabe-font);
+  font-size: var(--narabe-font-size);
+  line-height: var(--narabe-line-height);
+  color: var(--narabe-text);
+}
+
+/* The parts the hook draws: in the flow (the filter, the drill bar) or
+   placed over the list (the drop line, the rename box). */
+.narabe-chrome {
+  display: contents;
+}
+
+.narabe-body {
+  position: relative;
+  outline: none;
+}
+
+/* -- Rows -------------------------------------------------------------------- */
+
+.narabe-item {
+  position: relative;
+  border-radius: var(--narabe-inner-radius);
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+
+.narabe-item[hidden] {
+  display: none;
+}
+
+.narabe-content {
+  display: flex;
+  align-items: center;
+  gap: var(--narabe-space);
+  min-height: var(--narabe-row-height);
+  padding: 0 var(--narabe-space);
+  background: var(--narabe-row-background, transparent);
+  border-radius: inherit;
+  transition: translate var(--narabe-transition);
+  cursor: default;
+}
+
+.narabe-ready:not(.narabe-picker) .narabe-item:not(.narabe-locked) > .narabe-content {
+  cursor: grab;
+}
+
+.narabe-ready[data-config*='"handle":true'] .narabe-item > .narabe-content {
+  cursor: default;
+}
+
+.narabe-item:hover > .narabe-content {
+  --narabe-row-background: var(--narabe-hover);
+}
+
+.narabe-item.narabe-selected > .narabe-content {
+  --narabe-row-background: var(--narabe-selected);
+}
+
+.narabe-item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--narabe-accent);
+}
+
+.narabe-item[aria-disabled="true"] > .narabe-content {
+  color: var(--narabe-muted);
+  cursor: not-allowed;
+}
+
+.narabe-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.narabe-locked > .narabe-content {
+  color: var(--narabe-muted);
+}
+
+.narabe-locked > .narabe-content::after {
+  content: "";
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: currentColor;
+  -webkit-mask: var(--narabe-lock-icon) center / contain no-repeat;
+  mask: var(--narabe-lock-icon) center / contain no-repeat;
+  --narabe-lock-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Crect x='4' y='11' width='16' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E");
+}
+
+/* The handle: six dots. */
+.narabe-handle {
+  flex: none;
+  width: 0.75rem;
+  height: 1.125rem;
+  color: var(--narabe-muted);
+  background: radial-gradient(circle, currentColor 1.1px, transparent 1.4px) 0 0 / 6px 6px;
+  cursor: grab;
+  opacity: 0.6;
+  touch-action: none;
+}
+
+.narabe-item:hover .narabe-handle,
+.narabe-item:focus-visible .narabe-handle {
+  opacity: 1;
+}
+
+/* -- A tree ------------------------------------------------------------------- */
+
+.narabe-tree .narabe-content {
+  padding-inline-start: calc(var(--narabe-space) * 0.5 + (var(--narabe-level, 1) - 1) * var(--narabe-indent));
+  gap: 0.25rem;
+}
+
+.narabe-toggle {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 4px;
+  color: var(--narabe-muted);
+  cursor: pointer;
+}
+
+.narabe-item[aria-expanded] > .narabe-content > .narabe-toggle::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  -webkit-mask: var(--narabe-chevron) center / 0.875rem no-repeat;
+  mask: var(--narabe-chevron) center / 0.875rem no-repeat;
+  transition: rotate var(--narabe-transition);
+  --narabe-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E");
+}
+
+.narabe-item[aria-expanded="true"] > .narabe-content > .narabe-toggle::before {
+  rotate: 90deg;
+}
+
+.narabe-toggle:hover {
+  background: color-mix(in oklab, var(--narabe-text) 8%, transparent);
+}
+
+.narabe-item[aria-busy] > .narabe-content > .narabe-toggle::before {
+  -webkit-mask: none;
+  mask: none;
+  background: none;
+  border: 2px solid var(--narabe-border);
+  border-top-color: var(--narabe-accent);
+  border-radius: 50%;
+  width: 0.625rem;
+  height: 0.625rem;
+  margin: 0.25rem;
+  animation: narabe-spin 700ms linear infinite;
+}
+
+@keyframes narabe-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* An ancestor shown for a match below it. */
+.narabe-context > .narabe-content {
+  color: var(--narabe-muted);
+}
+
+::highlight(narabe-match) {
+  background-color: var(--narabe-match);
+  color: inherit;
+}
+
+.narabe-filter {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 2.125rem;
+  margin-bottom: var(--narabe-space);
+  padding: 0 0.625rem;
+  font: inherit;
+  color: inherit;
+  background: var(--narabe-background);
+  border: 1px solid var(--narabe-border);
+  border-radius: var(--narabe-inner-radius);
+}
+
+.narabe-filter:focus {
+  outline: none;
+  border-color: var(--narabe-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--narabe-accent) 25%, transparent);
+}
+
+/* A tree one level at a time (a phone). */
+.narabe-drill {
+  display: flex;
+  align-items: center;
+  gap: var(--narabe-space);
+  min-height: 2.75rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--narabe-border);
+}
+
+.narabe-drill[hidden],
+.narabe-drill:empty {
+  display: none;
+}
+
+.narabe-back {
+  flex: none;
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  font: inherit;
+  color: var(--narabe-accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.narabe-drill-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.narabe-drilling .narabe-item {
+  --narabe-row-height: 2.75rem;
+}
+
+.narabe-drilling .narabe-item[aria-expanded] > .narabe-content > .narabe-toggle {
+  order: 9;
+}
+
+.narabe-drilling .narabe-item[aria-expanded] > .narabe-content > .narabe-toggle::before {
+  rotate: none;
+}
+
+/* Rename in place. */
+.narabe-rename {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  height: 1.875rem;
+  padding: 0 0.375rem;
+  font: inherit;
+  color: inherit;
+  background: var(--narabe-background);
+  border: 1px solid var(--narabe-accent);
+  border-radius: var(--narabe-inner-radius);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--narabe-accent) 25%, transparent);
+  outline: none;
+}
+
+/* -- A board ------------------------------------------------------------------- */
+
+.narabe-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x proximity;
+}
+
+.narabe-column {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--narabe-column-width);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem;
+  background: var(--narabe-surface);
+  border-radius: var(--narabe-radius);
+  scroll-snap-align: start;
+}
+
+.narabe-column-header {
+  display: flex;
+  align-items: center;
+  gap: var(--narabe-space);
+  min-height: 2rem;
+  padding: 0 0.25rem 0.375rem;
+}
+
+.narabe-column-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--narabe-font-size);
+  font-weight: 600;
+}
+
+.narabe-column-count {
+  font-size: var(--narabe-small);
+  color: var(--narabe-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.narabe-column-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--narabe-card-gap);
+  min-height: 3rem;
+  overflow-y: auto;
+  border-radius: var(--narabe-inner-radius);
+}
+
+.narabe-board .narabe-item {
+  background: var(--narabe-background);
+  box-shadow: var(--narabe-card-shadow);
+  overflow: hidden;
+}
+
+.narabe-board .narabe-content {
+  align-items: flex-start;
+  padding: 0.5rem 0.625rem;
+}
+
+.narabe-board .narabe-label {
+  white-space: normal;
+}
+
+.narabe-column-footer {
+  padding-top: 0.375rem;
+}
+
+/* -- Dragging ------------------------------------------------------------------- */
+
+:where(html.narabe-dragging),
+:where(html.narabe-dragging) * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* The items being moved stay in place, faded, until the drop. */
+.narabe-lifted > .narabe-content,
+.narabe-column.narabe-lifted {
+  opacity: 0.4;
+}
+
+.narabe-moving .narabe-item.narabe-lifted:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--narabe-accent);
+}
+
+/* The copy that follows the pointer. */
+.narabe-ghost {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  z-index: 2147483000;
+  margin: 0 !important;
+  box-sizing: border-box;
+  pointer-events: none;
+  background: var(--narabe-background);
+  border-radius: var(--narabe-inner-radius);
+  box-shadow: var(--narabe-shadow);
+  font-family: var(--narabe-font);
+  font-size: var(--narabe-font-size);
+  line-height: var(--narabe-line-height);
+  color: var(--narabe-text);
+  opacity: 0.96;
+  rotate: 0deg;
+  will-change: translate;
+}
+
+.narabe-ghost.narabe-item > .narabe-content {
+  --narabe-row-background: transparent;
+  cursor: grabbing;
+}
+
+.narabe-ghost.narabe-column {
+  rotate: 2deg;
+}
+
+.narabe-count {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  box-sizing: border-box;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  text-align: center;
+  color: var(--narabe-accent-text);
+  background: var(--narabe-accent);
+  border-radius: 999px;
+}
+
+.narabe-ghost:has(.narabe-count) {
+  overflow: visible;
+}
+
+/* Where the items would land: a line between rows, or a box around the
+   row they would go into. */
+.narabe-indicator {
+  position: absolute;
+  z-index: 2;
+  height: 2px;
+  background: var(--narabe-accent);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.narabe-indicator::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border: 2px solid var(--narabe-accent);
+  border-radius: 50%;
+  background: var(--narabe-background);
+}
+
+.narabe-indicator-inside {
+  background: color-mix(in oklab, var(--narabe-accent) 10%, transparent);
+  border: 2px solid var(--narabe-accent);
+  border-radius: var(--narabe-inner-radius);
+  box-sizing: border-box;
+}
+
+.narabe-indicator-inside::before,
+.narabe-indicator-vertical::before {
+  display: none;
+}
+
+.narabe-indicator-vertical {
+  width: 2px;
+}
+
+.narabe-indicator.narabe-refused {
+  background: var(--narabe-refused);
+}
+
+.narabe-indicator.narabe-refused::before {
+  border-color: var(--narabe-refused);
+}
+
+.narabe-indicator-inside.narabe-refused {
+  background: color-mix(in oklab, var(--narabe-refused) 8%, transparent);
+  border-color: var(--narabe-refused);
+}
+
+.narabe-indicator[hidden] {
+  display: none;
+}
+
+/* -- Swipe actions (a phone) ---------------------------------------------------- */
+
+.narabe-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.narabe-actions > * {
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  font: inherit;
+  color: var(--narabe-accent-text);
+  background: var(--narabe-accent);
+  border: 0;
+}
+
+.narabe-item:has(> .narabe-actions) > .narabe-content {
+  position: relative;
+  z-index: 1;
+  background: var(--narabe-row-background, var(--narabe-background));
+}
+
+@media (pointer: fine) {
+  .narabe-actions {
+    display: none;
+  }
+}
+
+/* -- Phones ----------------------------------------------------------------------- */
+
+@media (pointer: coarse) {
+  .narabe {
+    --narabe-row-height: 2.75rem;
+  }
+
+  .narabe-handle {
+    width: 1.5rem;
+    height: 1.75rem;
+    background-position: center;
+    background-size: 7px 7px;
+  }
+
+  .narabe-columns {
+    scroll-snap-type: x mandatory;
+  }
+
+  .narabe-column {
+    width: min(var(--narabe-column-width), 85vw);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .narabe-content,
+  .narabe-toggle::before {
+    transition: none !important;
+  }
+}

@@ -57,6 +57,8 @@ export class Narabe {
   private query = "";
   private drillAt: string | null = null;
   private renaming: HTMLInputElement | null = null;
+  /** The item to keep focused through the server's render after a keyboard move. */
+  private refocus: string | null = null;
   private cleanups: (() => void)[] = [];
 
   constructor(el: HTMLElement, transport: Transport | null) {
@@ -103,6 +105,16 @@ export class Narabe {
   update(): void {
     this.config = readConfig(this.el);
     const all = rows(this.el);
+    // An item moved with the keyboard keeps the focus, even when the server's
+    // render made it anew (a card in another column).
+    if (this.refocus) {
+      const row = all.find((r) => r.id === this.refocus);
+      const lost = !document.activeElement || document.activeElement === document.body || !document.activeElement.isConnected;
+      if (row && lost) {
+        this.focusId = row.id;
+        queueMicrotask(() => row.el.focus({ preventScroll: true }));
+      }
+    }
     const ids = new Set(all.map((r) => r.id));
     for (const id of this.selected) if (!ids.has(id) && id !== this.config.value) this.selected.delete(id);
     this.applyVisibility(all);
@@ -263,6 +275,7 @@ export class Narabe {
     on("focusin", (e) => {
       const row = (e.target as Element).closest<HTMLElement>("[data-narabe-item]");
       if (row && row.parentElement && this.el.contains(row)) this.focusId = row.dataset.id ?? null;
+      if (row?.dataset.id !== this.refocus) this.refocus = null;
     });
     on("focusout", (e) => {
       if (this.lifted && !this.el.contains(e.relatedTarget as Node | null)) this.cancelLift();
@@ -288,6 +301,8 @@ export class Narabe {
     }
     if (target.closest("a[href], button, input, select, textarea, label, [data-narabe-nodrag]")) return;
     if (this.config.kind === "picker") return this.pick(row);
+    // One level at a time: a tap on a row with children opens it.
+    if (this.drilling && row.children && !e.shiftKey && !e.metaKey && !e.ctrlKey) return this.drill(row.id);
     if (!this.config.multiple && !this.config.onSelect) return;
     if (e.shiftKey && this.anchor) this.selectRange(row.id);
     else if (e.metaKey || e.ctrlKey) this.selectToggle(row.id);
@@ -551,8 +566,12 @@ export class Narabe {
     const lifted = this.lifted!;
     const group = this.board ? groups(this.el)[lifted.group] ?? null : null;
     const others = this.candidates(group);
-    const gap = gapAt(others, lifted.gap, lifted.level, !!this.config.rules?.nest, group?.id ?? null);
+    let gap = this.drilling
+      ? gapAt(others, lifted.gap, this.drillLevel(), false, this.drillAt)
+      : gapAt(others, lifted.gap, lifted.level, !!this.config.rules?.nest, group?.id ?? null);
     lifted.level = gap.level;
+    // Under a closed row with children: at the end of them, unseen.
+    if (this.tree && gap.anchor && gap.parent === gap.anchor.id && gap.anchor.children && !this.expanded.has(gap.anchor.id)) gap = inside(gap.anchor);
     this.target = { gap, rows: others, group, refusal: this.refusal(gap, group) };
     this.drawTarget();
     (gap.anchor?.el ?? others[0]?.el)?.scrollIntoView({ block: "nearest" });
@@ -568,6 +587,7 @@ export class Narabe {
       return;
     }
     this.apply(ids, target);
+    this.refocus = ids[0] ?? null;
     rows(this.el).find((r) => r.id === ids[0])?.el.focus();
   }
 
@@ -589,6 +609,7 @@ export class Narabe {
   // -- Moving with a pointer --------------------------------------------------------
 
   private pointerDown(e: PointerEvent): void {
+    this.refocus = null;
     if (e.button !== 0 || !this.canMove || this.session || this.lifted) return;
     const target = e.target as Element;
     const columnHandle = target.closest<HTMLElement>("[data-narabe-group-handle]");
@@ -671,16 +692,22 @@ export class Narabe {
       } else {
         const indent = this.indent();
         const left = (this.el.querySelector<HTMLElement>("[data-narabe-body]") ?? this.el).getBoundingClientRect().left;
-        const depth = Math.round((this.session ? this.session.left : x) - left) / indent + 1;
-        gap = gapAt(others, zone.gap, Math.round(depth), true);
+        // The dragged row's own level, and a level for each indent the pointer moved sideways.
+        const base = rows(this.el).find((r) => r.id === this.dragging[0])?.level ?? 1;
+        const depth = base + Math.round(((this.session ? this.session.left : x) - left) / indent);
+        gap = gapAt(others, zone.gap, depth, true);
       }
     } else {
       const parent = this.drilling ? this.drillAt : group?.id ?? null;
-      gap = gapAt(others, gapAtY(others, rects, y), 1, false, parent);
-      if (this.drilling) gap = { ...gap, parent: this.drillAt, level: (rows(this.el).find((r) => r.id === this.drillAt)?.level ?? 0) + 1 };
+      gap = gapAt(others, gapAtY(others, rects, y), this.drilling ? this.drillLevel() : 1, false, parent);
     }
     this.target = { gap, rows: others, group, refusal: this.refusal(gap, group) };
     this.drawTarget();
+  }
+
+  /** The level shown, one level at a time. */
+  private drillLevel(): number {
+    return (rows(this.el).find((r) => r.id === this.drillAt)?.level ?? 0) + 1;
   }
 
   private mayHold(row: Row): boolean {
@@ -822,6 +849,8 @@ export class Narabe {
   private apply(ids: string[], target: Target): void {
     const all = rows(this.el);
     const { gap, group } = target;
+    const shape = (list: Row[]) => list.map((r) => `${r.id}/${r.el.dataset.level}/${r.el.dataset.parent ?? ""}/${r.el.parentElement === null ? "" : (r.el.closest("[data-narabe-group]") as HTMLElement | null)?.dataset.id ?? ""}`).join(" ");
+    const was = shape(all);
     const snapshot: Snapshot[] = [];
     const blocks = ids.map((id) => {
       const index = all.findIndex((r) => r.id === id);
@@ -858,6 +887,8 @@ export class Narabe {
     else if (container) container.prepend(...moved);
     if (gap.shape === "inside" && gap.parent) this.expanded.add(gap.parent);
     this.update();
+    // Dropped where they were: nothing to tell the server.
+    if (shape(rows(this.el)) === was) return this.say(this.words.t("cancelled", { label: this.labelOf(ids) }));
 
     const payload = { v: 1, ids, parent: gap.parent, after: gap.shape === "inside" ? null : gap.after, before: gap.shape === "inside" ? null : gap.before, index: gap.shape === "inside" ? null : gap.index };
     this.say(this.words.t("dropped", { label: this.labelOf(ids), position: this.words.number(gap.index + 1), count: this.words.number(gap.count) }));

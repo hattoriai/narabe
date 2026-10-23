@@ -12,7 +12,10 @@ defmodule Narabe.Components.Shared do
         default: nil,
         doc: "the event of a change of the selected items: `%{\"v\" => 1, \"ids\" => [...]}`"
 
-      attr :rules, :any, default: nil, doc: "what may go where: `Narabe.Rules` or its options"
+      attr :rules, :any,
+        default: nil,
+        doc:
+          "what may go where: `Narabe.Rules`, its options, or a schema with `use Narabe.Ordered`"
 
       attr :multiple, :boolean,
         default: false,

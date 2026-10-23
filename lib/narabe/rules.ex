@@ -54,14 +54,32 @@ defmodule Narabe.Rules do
         }
 
   @doc """
-  Rules from options (see the moduledoc), or the rules themselves.
+  Rules from options (see the moduledoc), the rules themselves, or those
+  of a schema with `use Narabe.Ordered` (so that a component and
+  `Narabe.Ecto` have the same: `<.tree rules={Page} ...>`).
 
       iex> Narabe.Rules.new(nest: true, max_depth: 3)
       %Narabe.Rules{nest: true, max_depth: 3, leaves: [], accepts: nil}
   """
-  @spec new(t() | keyword() | nil) :: t()
+  @spec new(t() | keyword() | module() | nil) :: t()
   def new(nil), do: %__MODULE__{}
   def new(%__MODULE__{} = rules), do: rules
+
+  # A schema with `use Narabe.Ordered`: its rules (a tree's nest by default).
+  def new(schema) when is_atom(schema) do
+    unless Code.ensure_loaded?(schema) and function_exported?(schema, :__narabe__, 0) do
+      raise ArgumentError,
+            "Narabe.Rules: #{inspect(schema)} is not a schema with `use Narabe.Ordered`"
+    end
+
+    opts = schema.__narabe__()
+
+    case Keyword.get(opts, :rules) do
+      nil -> new(nest: Keyword.get(opts, :tree, false))
+      %__MODULE__{} = rules -> rules
+      rules -> new(Keyword.put_new(rules, :nest, Keyword.get(opts, :tree, false)))
+    end
+  end
 
   def new(opts) when is_list(opts) do
     Enum.reduce(opts, %__MODULE__{}, fn

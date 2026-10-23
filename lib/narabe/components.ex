@@ -161,7 +161,8 @@ defmodule Narabe.Components do
       kind: assigns.item_kind && assigns.item_kind.(item),
       locked: assigns.item_locked && assigns.item_locked.(item),
       handle: assigns.handle,
-      handle_label: assigns.handle_label
+      handle_label: assigns.handle_label,
+      marked: assigns.item == []
     }
   end
 
@@ -512,6 +513,7 @@ defmodule Narabe.Components do
   attr :disabled, :boolean, default: false
   attr :handle, :boolean, default: false
   attr :handle_label, :string, default: nil
+  attr :marked, :boolean, default: true, doc: "whether the body is the label (no `item` slot)"
   slot :body, required: true
   slot :actions
 
@@ -540,7 +542,7 @@ defmodule Narabe.Components do
       <div class="narabe-content" data-narabe-content>
         <span :if={@toggle} class="narabe-toggle" data-narabe-toggle aria-hidden="true"></span>
         <span :if={@handle} class="narabe-handle" data-narabe-handle aria-hidden="true" title={@handle_label}></span>
-        <span class="narabe-label" data-narabe-label>{render_slot(@body)}</span>
+        <span class="narabe-label" data-narabe-label={@marked}>{render_slot(@body)}</span>
       </div>
       <div :if={@actions != []} class="narabe-actions" data-narabe-actions>{render_slot(@actions)}</div>
     </div>

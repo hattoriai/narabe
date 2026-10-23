@@ -12,9 +12,14 @@ defmodule Narabe.MoveTest do
     assert {:error, :invalid_move} = Move.parse(%{"v" => 1, "ids" => ["x"]}, NarabeTest.Card)
   end
 
-  test "an item is not its own parent or neighbour" do
-    assert {:error, :invalid_move} = Move.parse(%{"v" => 1, "ids" => ["3"], "parent" => "3"}, :id)
+  test "an item is not its own neighbour" do
     assert {:error, :invalid_move} = Move.parse(%{"v" => 1, "ids" => ["3"], "after" => "3"}, :id)
+    assert {:error, :invalid_move} = Move.parse(%{"v" => 1, "ids" => ["3"], "before" => "3"}, :id)
+  end
+
+  test "a parent may have a moved item's id: a board's column is another table's row" do
+    # (In a tree, Narabe.Ecto refuses a move into itself as :into_itself.)
+    assert {:ok, %Move{ids: [3], parent: 3}} = Move.parse(%{"v" => 1, "ids" => ["3"], "parent" => "3"}, :id)
   end
 
   test "params round-trip" do

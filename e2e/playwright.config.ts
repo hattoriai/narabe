@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 // The browser tests run against the development server (`mix dev`, see
 // dev.exs). The web server command builds the bundle first, and starts
 // the server without watchers or live reload. It has its own port (4098,
-// or E2E_PORT), so that a `mix dev` with watchers on 4099 is never the
+// or E2E_PORT), so that a `mix dev` with watchers on 4097 is never the
 // server of a run.
 const port = Number(process.env.E2E_PORT ?? 4098);
 const baseURL = `http://127.0.0.1:${port}`;
@@ -28,18 +28,20 @@ for (const name of picked) {
 
 export default defineConfig({
   testDir: "./specs",
-  fullyParallel: true,
+  // The pages share one database, which each test resets: one test at a time.
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
   use: {
     baseURL,
-    // The pickers read the browser's locale only when the page gives none;
-    // the dev pages give en-GB.
+    // The lists read the locale the page gives;
+    // the dev pages give "en" unless asked.
     locale: "en-GB",
     timezoneId: "Europe/Lisbon",
-    // No popup slides in: a test sees it where it stays, at once, and
-    // never measures it on its way (the pickers honour reduced motion).
+    // Nothing animates: a test sees each thing where it stays, and
+    // never measures it on its way (the lists honour reduced motion).
     reducedMotion: "reduce",
     // A failed test keeps its trace and a screenshot, in test-results/.
     trace: "retain-on-failure",
@@ -49,7 +51,7 @@ export default defineConfig({
   webServer: {
     command: "mix do narabe.build + dev",
     cwd: "..",
-    url: `${baseURL}/plain`,
+    url: `${baseURL}/reset`,
     env: { PORT: String(port), NARABE_DEV_WATCH: "false", MIX_ENV: "dev" },
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
