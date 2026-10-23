@@ -1,0 +1,140 @@
+defmodule Narabe.ComponentsTest do
+  use ExUnit.Case, async: true
+
+  import Phoenix.Component
+  import Phoenix.LiveViewTest
+  import Narabe.Components
+
+  defp config(html, selector \\ "[phx-hook=Narabe]") do
+    html
+    |> LazyHTML.from_fragment()
+    |> LazyHTML.query(selector)
+    |> LazyHTML.attribute("data-config")
+    |> hd()
+    |> JSON.decode!()
+  end
+
+  defp attrs(html, selector, name) do
+    html |> LazyHTML.from_fragment() |> LazyHTML.query(selector) |> LazyHTML.attribute(name)
+  end
+
+  test "a list: its items, in order, with their ids and labels" do
+    assigns = %{items: [%{id: 1, title: "Write"}, %{id: 2, title: "Ship"}]}
+
+    html =
+      rendered_to_string(~H"""
+      <.sortable_list id="tasks" items={@items} on_move="move" label="Tasks" />
+      """)
+
+    assert attrs(html, "[data-narabe-item]", "data-id") == ["1", "2"]
+    assert attrs(html, "[data-narabe-item]", "data-label") == ["Write", "Ship"]
+    assert attrs(html, "[data-narabe-item]", "role") == ["option", "option"]
+    assert attrs(html, "[data-narabe-chrome]", "phx-update") == ["ignore"]
+    c = config(html)
+    assert c["kind"] == "list"
+    assert c["onMove"] == "move"
+    refute c["rules"]["nest"]
+    assert c["messages"]["dragHandle"]
+  end
+
+  test "a list's item slot, handle, and locked items" do
+    assigns = %{items: [%{id: 1, name: "A", lock: "Ana"}, %{id: 2, name: "B", lock: nil}]}
+
+    html =
+      rendered_to_string(~H"""
+      <.sortable_list id="l" items={@items} on_move="m" handle item_locked={:lock} multiple>
+        <:item :let={item}><b>{item.name}!</b></:item>
+      </.sortable_list>
+      """)
+
+    assert html =~ "<b>A!</b>"
+    assert length(attrs(html, "[data-narabe-handle]", "class")) == 2
+    assert attrs(html, "[data-locked]", "data-locked") == ["Ana"]
+    assert attrs(html, "[role=listbox]", "aria-multiselectable") == ["true"]
+    assert config(html)["multiple"] == true
+  end
+
+  test "a tree: flat rows with levels, parents and the tree's aria" do
+    assigns = %{
+      items: [
+        %{id: 1, name: "Docs", parent_id: nil},
+        %{id: 2, name: "Intro", parent_id: 1},
+        %{id: 3, name: "API", parent_id: nil}
+      ]
+    }
+
+    html =
+      rendered_to_string(~H"""
+      <.tree id="pages" items={@items} on_move="move" expanded={[1]} filter on_rename="rename" />
+      """)
+
+    assert attrs(html, "[data-narabe-item]", "data-id") == ["1", "2", "3"]
+    assert attrs(html, "[data-narabe-item]", "data-level") == ["1", "2", "1"]
+    assert attrs(html, "[data-narabe-item]", "aria-level") == ["1", "2", "1"]
+    assert attrs(html, "[data-narabe-item]", "aria-setsize") == ["2", "1", "2"]
+    assert attrs(html, "[data-narabe-item][data-parent]", "data-parent") == ["1"]
+    assert attrs(html, "[data-children]", "data-id") == ["1"]
+    assert attrs(html, "[data-expanded]", "data-id") == ["1"]
+    assert attrs(html, "[phx-hook=Narabe]", "data-filter") == ["true"]
+    c = config(html)
+    assert c["kind"] == "tree"
+    assert c["rules"]["nest"] == true
+    assert c["onRename"] == "rename"
+  end
+
+  test "a board: columns and their cards" do
+    assigns = %{
+      columns: [%{id: 1, name: "Todo"}, %{id: 2, name: "Done"}],
+      cards: [
+        %{id: 10, title: "a", column_id: 2},
+        %{id: 11, title: "b", column_id: 1},
+        %{id: 12, title: "c", column_id: 2}
+      ]
+    }
+
+    html =
+      rendered_to_string(~H"""
+      <.board id="b" columns={@columns} cards={@cards} on_move="move" move_columns>
+        <:card :let={card}>{card.title}</:card>
+        <:footer><button>Add</button></:footer>
+      </.board>
+      """)
+
+    assert attrs(html, "[data-narabe-group]", "data-id") == ["1", "2"]
+    assert attrs(html, "#b-column-2 [data-narabe-item]", "data-id") == ["10", "12"]
+    assert attrs(html, "#b-column-2 [data-narabe-item]", "data-parent") == ["2", "2"]
+    assert length(attrs(html, "[data-narabe-group-handle]", "class")) == 2
+    assert config(html)["moveColumns"] == true
+    assert html =~ "Add"
+  end
+
+  test "a tree picker: a field, the chosen item's ancestors open, disabled subtrees" do
+    form = to_form(%{"parent_id" => "3"}, as: :page)
+
+    assigns = %{
+      form: form,
+      items: [
+        %{id: 1, name: "A", parent_id: nil},
+        %{id: 2, name: "A1", parent_id: 1},
+        %{id: 3, name: "A1x", parent_id: 2},
+        %{id: 4, name: "B", parent_id: nil},
+        %{id: 5, name: "B1", parent_id: 4}
+      ]
+    }
+
+    html =
+      rendered_to_string(~H"""
+      <.tree_picker field={@form[:parent_id]} items={@items} disabled={[4]} />
+      """)
+
+    assert attrs(html, "input[data-narabe-value]", "name") == ["page[parent_id]"]
+    assert attrs(html, "input[data-narabe-value]", "value") == ["3"]
+    assert Enum.sort(attrs(html, "[data-expanded]", "data-id")) == ["1", "2"]
+    assert attrs(html, "[aria-disabled]", "data-id") == ["4", "5"]
+    c = config(html)
+    assert c["kind"] == "picker"
+    assert c["value"] == "3"
+    assert c["phone"] == "drill"
+    assert Enum.sort(c["disabled"]) == ["4", "5"]
+  end
+end

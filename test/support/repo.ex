@@ -23,7 +23,10 @@ defmodule NarabeTest.Databases do
   }
 
   def wanted,
-    do: System.get_env("NARABE_DBS", "postgres,mysql,sqlite") |> String.split(",", trim: true)
+    do:
+      System.get_env("NARABE_DBS", "postgres,mysql,sqlite")
+      |> String.split(",", trim: true)
+      |> Enum.filter(&Map.has_key?(@repos, &1))
 
   def start do
     for name <- wanted() do

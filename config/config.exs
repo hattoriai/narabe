@@ -37,6 +37,8 @@ if config_env() == :test do
 
   config :narabe, NarabeTest.MyRepo,
     url: System.get_env("NARABE_MYSQL_URL", "ecto://narabe:narabe@127.0.0.1/narabe_test"),
+    # Without TCP_NODELAY, a statement can wait ~40 ms on a delayed ACK.
+    socket_options: [nodelay: true],
     pool: Ecto.Adapters.SQL.Sandbox,
     pool_size: 10
 

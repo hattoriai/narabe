@@ -412,19 +412,19 @@ end
 
 defmodule Narabe.EctoTest.Postgres do
   use ExUnit.Case, async: true
-  use Narabe.EctoCases, repo: NarabeTest.Repo
   @moduletag db: "postgres"
+  use Narabe.EctoCases, repo: NarabeTest.Repo
 end
 
 defmodule Narabe.EctoTest.MySQL do
   use ExUnit.Case, async: true
-  use Narabe.EctoCases, repo: NarabeTest.MyRepo
   @moduletag db: "mysql"
+  use Narabe.EctoCases, repo: NarabeTest.MyRepo
 end
 
 defmodule Narabe.EctoTest.SQLite do
   # SQLite writes one transaction at a time.
   use ExUnit.Case, async: false
-  use Narabe.EctoCases, repo: NarabeTest.LiteRepo
   @moduletag db: "sqlite"
+  use Narabe.EctoCases, repo: NarabeTest.LiteRepo
 end
