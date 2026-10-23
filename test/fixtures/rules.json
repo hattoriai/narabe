@@ -1,0 +1,19 @@
+{
+  "cases": [
+    { "name": "a list item stays at the top level", "rules": {}, "move": { "kinds": ["task"], "parentKind": null, "parentDepth": 0, "height": 1, "intoItself": false }, "result": "ok" },
+    { "name": "a list does not nest", "rules": {}, "move": { "kinds": ["task"], "parentKind": "task", "parentDepth": 1, "height": 1, "intoItself": false }, "result": "not_accepted" },
+    { "name": "a tree nests", "rules": { "nest": true }, "move": { "kinds": ["page"], "parentKind": "page", "parentDepth": 3, "height": 2, "intoItself": false }, "result": "ok" },
+    { "name": "nothing goes inside itself", "rules": { "nest": true }, "move": { "kinds": ["page"], "parentKind": "page", "parentDepth": 2, "height": 1, "intoItself": true }, "result": "into_itself" },
+    { "name": "the deepest level counts the item's own children", "rules": { "nest": true, "maxDepth": 4 }, "move": { "kinds": ["page"], "parentKind": "page", "parentDepth": 2, "height": 3, "intoItself": false }, "result": "too_deep" },
+    { "name": "right at the deepest level", "rules": { "nest": true, "maxDepth": 4 }, "move": { "kinds": ["page"], "parentKind": "page", "parentDepth": 2, "height": 2, "intoItself": false }, "result": "ok" },
+    { "name": "the top level is depth 1", "rules": { "nest": true, "maxDepth": 1 }, "move": { "kinds": ["page"], "parentKind": null, "parentDepth": 0, "height": 1, "intoItself": false }, "result": "ok" },
+    { "name": "a file holds nothing", "rules": { "nest": true, "leaves": ["file"] }, "move": { "kinds": ["file"], "parentKind": "file", "parentDepth": 2, "height": 1, "intoItself": false }, "result": "not_accepted" },
+    { "name": "a folder holds files", "rules": { "nest": true, "leaves": ["file"] }, "move": { "kinds": ["file"], "parentKind": "folder", "parentDepth": 2, "height": 1, "intoItself": false }, "result": "ok" },
+    { "name": "a parent's kind says what it accepts", "rules": { "nest": true, "accepts": { "section": ["page"], "root": ["section"] } }, "move": { "kinds": ["page"], "parentKind": "root", "parentDepth": 0, "height": 1, "intoItself": false }, "result": "not_accepted" },
+    { "name": "the top level's kind is root", "rules": { "nest": true, "accepts": { "section": ["page"], "root": ["section"] } }, "move": { "kinds": ["section"], "parentKind": null, "parentDepth": 0, "height": 2, "intoItself": false }, "result": "ok" },
+    { "name": "several items: every one must be accepted", "rules": { "nest": true, "accepts": { "section": ["page"] } }, "move": { "kinds": ["page", "section"], "parentKind": "section", "parentDepth": 1, "height": 1, "intoItself": false }, "result": "not_accepted" },
+    { "name": "a kind with no entry accepts anything", "rules": { "nest": true, "accepts": { "section": ["page"] } }, "move": { "kinds": ["section"], "parentKind": "page", "parentDepth": 2, "height": 1, "intoItself": false }, "result": "ok" },
+    { "name": "a board's cards go in its columns", "rules": { "accepts": { "column": ["card"] } }, "move": { "kinds": ["card"], "parentKind": "column", "parentDepth": 0, "height": 1, "intoItself": false }, "result": "ok" },
+    { "name": "inside itself comes before every other reason", "rules": { "nest": true, "maxDepth": 1, "leaves": ["page"] }, "move": { "kinds": ["page"], "parentKind": "page", "parentDepth": 1, "height": 1, "intoItself": true }, "result": "into_itself" }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "narabe",
+  "version": "0.1.0",
+  "license": "MIT",
+  "module": "./priv/static/narabe.esm.js",
+  "main": "./priv/static/narabe.cjs.js",
+  "exports": {
+    ".": {
+      "import": "./priv/static/narabe.esm.js",
+      "require": "./priv/static/narabe.cjs.js"
+    },
+    "./color": {
+      "import": "./priv/static/narabe-color.esm.js",
+      "require": "./priv/static/narabe-color.cjs.js"
+    },
+    "./emoji": {
+      "import": "./priv/static/narabe-emoji.esm.js",
+      "require": "./priv/static/narabe-emoji.cjs.js"
+    }
+  },
+  "files": [
+    "priv/static"
+  ]
+}
