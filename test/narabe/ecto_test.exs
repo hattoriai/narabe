@@ -3,16 +3,19 @@ defmodule Narabe.EctoCases do
   # Narabe.Ecto's tests, once for each database (Postgres, MySQL, SQLite):
   # a board's cards, a tree's pages (test/support/repo.ex).
 
+  # The cases, once for each database.
   defmacro __using__(repo: repo) do
+    # credo:disable-for-next-line Credo.Check.Refactor.LongQuoteBlocks
     quote do
       import Ecto.Query
 
+      alias Ecto.Adapters.SQL.Sandbox
       alias Narabe.Move
       alias NarabeTest.{Card, Column, Page}
       alias unquote(repo), as: Repo
 
       setup do
-        :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
+        :ok = Sandbox.checkout(Repo)
       end
 
       defp column(name) do

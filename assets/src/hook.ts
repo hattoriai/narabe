@@ -1,7 +1,8 @@
 // The Narabe hook for a LiveSocket, and `mountNarabe` for a page without
 // LiveView. The hook makes a Narabe of its element, gives it the server's
 // later renders (`updated`), and passes the events of Narabe.Live
-// (narabe:expand, narabe:reveal, narabe:select) to the list they name.
+// (narabe:expand, narabe:reveal, narabe:select) and Narabe.Issho's
+// (narabe:people) to the list they name.
 
 import { Narabe, type Transport } from "./narabe";
 
@@ -28,6 +29,9 @@ export const NarabeHook = {
         if (target) hook.pushEventTo(target, event, payload, reply);
         else hook.pushEvent(event, payload, reply);
       },
+      pushTo(selector, event, payload) {
+        hook.pushEventTo(selector, event, payload);
+      },
     };
     const narabe = new Narabe(hook.el, transport);
     hook.narabe = narabe;
@@ -35,6 +39,7 @@ export const NarabeHook = {
     hook.handleEvent("narabe:expand", (p) => mine(p) && narabe.setExpanded(ids(p), p.expanded !== false));
     hook.handleEvent("narabe:reveal", (p) => mine(p) && narabe.reveal(String(p.item)));
     hook.handleEvent("narabe:select", (p) => mine(p) && narabe.setSelected(ids(p)));
+    hook.handleEvent("narabe:people", (p) => mine(p) && narabe.setPeers((p.people ?? []) as Parameters<Narabe["setPeers"]>[0], (p.held ?? {}) as Parameters<Narabe["setPeers"]>[1]));
   },
 
   updated(this: NarabeHook) {

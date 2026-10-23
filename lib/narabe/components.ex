@@ -49,6 +49,7 @@ defmodule Narabe.Components do
   defp common(assigns, kind, rules_default) do
     rules = Rules.new(assigns.rules || rules_default)
     messages = Messages.for_locale(assigns.locale, assigns.messages)
+    issho_join = issho_join(assigns[:issho], assigns[:user])
 
     config = %{
       "v" => 1,
@@ -62,28 +63,64 @@ defmodule Narabe.Components do
       "onSelect" => assigns[:on_select],
       "onExpand" => assigns[:on_expand],
       "onRename" => assigns[:on_rename],
-      "handle" => assigns[:handle] || nil,
-      "multiple" => assigns[:multiple] || nil,
-      "readonly" => assigns[:readonly] || nil,
-      "moveColumns" => assigns[:move_columns] || nil,
+      "handle" => assigns[:handle],
+      "multiple" => assigns[:multiple],
+      "readonly" => assigns[:readonly],
+      "moveColumns" => assigns[:move_columns],
       "phone" => assigns[:phone] && to_string(assigns.phone),
       "name" => assigns[:name],
       "value" => assigns[:value],
-      "disabled" => assigns[:disabled_ids]
+      "disabled" => assigns[:disabled_ids],
+      "issho" => issho_join && %{"target" => "##{assigns.id}-issho"}
     }
 
-    assign(assigns,
+    assigns
+    |> assign(
       kind: kind,
       config: JSON.encode!(reject_nils(config)),
+      handle_label: messages["dragHandle"],
+      issho_join: issho_join
+    )
+    |> getters()
+  end
+
+  # The item's id, label, kind and lock, as functions.
+  defp getters(assigns) do
+    assign(assigns,
       item_id: Tree.getter(assigns.item_id),
       item_label: if(assigns.item_label, do: Tree.getter(assigns.item_label), else: &label/1),
       item_kind: if(assigns.item_kind, do: Tree.getter(assigns.item_kind)),
-      item_locked: if(assigns.item_locked, do: Tree.getter(assigns.item_locked)),
-      handle_label: messages["dragHandle"]
+      item_locked: if(assigns.item_locked, do: Tree.getter(assigns.item_locked))
     )
   end
 
-  defp reject_nils(map), do: map |> Enum.reject(fn {_, v} -> v == nil end) |> Map.new()
+  # The room of a list with `issho` (Narabe.Issho).
+  defp issho_join(nil, _user), do: nil
+
+  defp issho_join(issho, user) do
+    unless Code.ensure_loaded?(Narabe.Issho.Presence) do
+      raise ArgumentError,
+            "Narabe: a list's `issho` needs Issho in your deps: {:issho, \"~> 0.4\"}"
+    end
+
+    if user == nil,
+      do: raise(ArgumentError, "Narabe: a list with `issho` needs its `user`, the person moving")
+
+    Issho.Join.new!(issho, [:lock])
+  end
+
+  attr :id, :string, required: true
+  attr :join, :any, required: true
+  attr :user, :any, required: true
+
+  defp presence(assigns) do
+    ~H"""
+    <.live_component :if={@join} module={Narabe.Issho.Presence} id={"#{@id}-issho"} list={@id} join={@join} user={@user} />
+    """
+  end
+
+  # Nothing that is a default: no nil, no false.
+  defp reject_nils(map), do: map |> Enum.reject(fn {_, v} -> v in [nil, false] end) |> Map.new()
 
   @doc false
   def label(item) do
@@ -144,6 +181,7 @@ defmodule Narabe.Components do
         </.row>
       </div>
     </div>
+    <.presence id={@id} join={@issho_join} user={@user} />
     """
   end
 
@@ -274,6 +312,7 @@ defmodule Narabe.Components do
         </.row>
       </div>
     </div>
+    <.presence id={@id} join={@issho_join} user={@user} />
     """
   end
 
@@ -328,7 +367,9 @@ defmodule Narabe.Components do
 
     value = if value in [nil, ""], do: nil, else: to_string(value)
     assigns = assign(assigns, id: id, name: name, value: value, item_locked: nil, actions: [])
-    assigns = assign(assigns, handle: false, multiple: false, readonly: true, on_rename: nil)
+
+    assigns =
+      assign(assigns, handle: false, multiple: false, readonly: true, on_rename: nil, user: nil)
 
     assigns
     |> common("picker", nest: true)
@@ -491,6 +532,7 @@ defmodule Narabe.Components do
         </section>
       </div>
     </div>
+    <.presence id={@id} join={@issho_join} user={@user} />
     """
   end
 

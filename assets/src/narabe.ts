@@ -11,10 +11,13 @@ import { readConfig, Words, type Config } from "./config";
 import { DragSession, startsDrag } from "./drag";
 import { gapAt, gapAtY, inside, without, zoneAtY, type Gap } from "./drop";
 import { ancestors, groups, height, readRow, rows, subtree, type Group, type Row } from "./model";
+import { Peers, type Held, type Person, type Place } from "./peers";
 import { check, type Refusal } from "./rules";
 
 export interface Transport {
   push(event: string, payload: object, onReply?: (reply: Record<string, unknown>) => void): void;
+  /** To another element's component (Narabe.Issho's room). */
+  pushTo?(target: string, event: string, payload: object): void;
 }
 
 /** A drop, worked out: where, and whether the rules allow it. */
@@ -60,6 +63,7 @@ export class Narabe {
   /** The item to keep focused through the server's render after a keyboard move. */
   private refocus: string | null = null;
   private cleanups: (() => void)[] = [];
+  private peers: Peers;
 
   constructor(el: HTMLElement, transport: Transport | null) {
     this.el = el;
@@ -77,6 +81,15 @@ export class Narabe {
     this.chrome.append(this.live, this.line);
     for (const row of rows(el)) if (row.el.dataset.expanded === "true") this.expanded.add(row.id);
     if (this.config.value) this.selected.add(this.config.value);
+    const room = this.config.issho?.target;
+    this.peers = new Peers(
+      el,
+      this.chrome,
+      room && transport?.pushTo ? (at) => transport.pushTo!(room, "narabe:place", { at }) : null,
+      () => this.indent(),
+      () => this.tree && !this.drilling,
+    );
+    if (room) this.cleanups.push(this.peers.share());
     this.buildChrome();
     this.listen();
     this.update();
@@ -121,6 +134,31 @@ export class Narabe {
     this.applySelection(all);
     this.applyFocus(all);
     this.renderDrill(all);
+    this.peers.draw();
+  }
+
+  /** The others in the list, and who holds what (Narabe.Issho's "narabe:people"). */
+  setPeers(people: Person[], held: Held): void {
+    this.peers.set(people, held);
+  }
+
+  // Where this person is, for the others: the items they drag and where to, or the item they are on.
+  private tellPlace(): void {
+    if (this.dragging.length && this.target && !this.target.refusal) {
+      const gap = this.target.gap;
+      const place: Place = {
+        item: this.dragging[0],
+        count: this.dragging.length,
+        items: this.dragging,
+        drag: { parent: gap.parent, after: gap.shape === "inside" ? null : gap.after, before: gap.shape === "inside" ? null : gap.before, level: this.tree ? gap.level : null },
+      };
+      this.peers.tell(place);
+    } else if (this.dragging.length) {
+      this.peers.tell({ item: this.dragging[0], count: this.dragging.length, items: this.dragging });
+    } else {
+      const focused = (document.activeElement as HTMLElement | null)?.closest?.<HTMLElement>("[data-narabe-item]");
+      this.peers.tell(focused && this.el.contains(focused) ? { item: focused.dataset.id! } : null);
+    }
   }
 
   private applyVisibility(all: Row[]): void {
@@ -276,9 +314,11 @@ export class Narabe {
       const row = (e.target as Element).closest<HTMLElement>("[data-narabe-item]");
       if (row && row.parentElement && this.el.contains(row)) this.focusId = row.dataset.id ?? null;
       if (row?.dataset.id !== this.refocus) this.refocus = null;
+      if (!this.dragging.length) this.tellPlace();
     });
     on("focusout", (e) => {
       if (this.lifted && !this.el.contains(e.relatedTarget as Node | null)) this.cancelLift();
+      if (!this.el.contains(e.relatedTarget as Node | null) && !this.dragging.length) this.peers.tell(null);
     });
     this.swipes();
   }
@@ -494,6 +534,8 @@ export class Narabe {
   private lift(row: Row): void {
     if (row.locked) return this.say(this.words.t("locked", { name: row.locked }));
     const ids = this.moving(row);
+    const holder = this.peers.holder(ids);
+    if (holder) return this.say(this.words.t("locked", { name: holder }));
     const all = rows(this.el);
     const others = without(all, new Set(ids)).filter((r) => !r.el.hidden || this.board);
     const first = all.findIndex((r) => r.id === ids[0]);
@@ -574,6 +616,7 @@ export class Narabe {
     if (this.tree && gap.anchor && gap.parent === gap.anchor.id && gap.anchor.children && !this.expanded.has(gap.anchor.id)) gap = inside(gap.anchor);
     this.target = { gap, rows: others, group, refusal: this.refusal(gap, group) };
     this.drawTarget();
+    this.tellPlace();
     (gap.anchor?.el ?? others[0]?.el)?.scrollIntoView({ block: "nearest" });
     this.say(this.describe(this.target));
   }
@@ -604,6 +647,7 @@ export class Narabe {
     this.dragging = [];
     this.target = null;
     this.line.hidden = true;
+    this.tellPlace();
   }
 
   // -- Moving with a pointer --------------------------------------------------------
@@ -618,6 +662,7 @@ export class Narabe {
     if (!row || !startsDrag(target, !!this.config.handle)) return;
     if (row.locked) return;
     const ids = this.moving(row);
+    if (this.peers.holder(ids)) return;
     this.session = new DragSession(e, row.el, {
       lift: () => {
         this.dragging = ids;
@@ -648,6 +693,7 @@ export class Narabe {
     this.dragging = [];
     this.target = null;
     this.line.hidden = true;
+    this.tellPlace();
   }
 
   private ghost(row: Row, count: number): HTMLElement {
@@ -703,6 +749,7 @@ export class Narabe {
     }
     this.target = { gap, rows: others, group, refusal: this.refusal(gap, group) };
     this.drawTarget();
+    this.tellPlace();
   }
 
   /** The level shown, one level at a time. */
@@ -822,7 +869,11 @@ export class Narabe {
     const body = (group?.body ?? this.el.querySelector<HTMLElement>("[data-narabe-body]") ?? this.el).getBoundingClientRect();
     const y = above && below ? (above.bottom + below.top) / 2 : above ? above.bottom + 2 : below ? below.top - 2 : body.top + 8;
     const indent = this.tree && !this.drilling ? (gap.level - 1) * this.indent() : 0;
-    Object.assign(s, { left: `${body.left - box.left + indent}px`, top: `${y - box.top - 1}px`, width: `${Math.max(24, body.width - indent)}px`, height: "" });
+    // Within what shows of the list (a board scrolls sideways).
+    const shown = (this.el.querySelector<HTMLElement>("[data-narabe-body]") ?? this.el).getBoundingClientRect();
+    const left = Math.max(body.left + indent, shown.left);
+    const right = Math.min(body.right, shown.right);
+    Object.assign(s, { left: `${left - box.left}px`, top: `${y - box.top - 1}px`, width: `${Math.max(24, right - left)}px`, height: "" });
   }
 
   private describe(target: Target): string {
@@ -1029,6 +1080,7 @@ export class Narabe {
 
   destroy(): void {
     this.session?.abort();
+    this.peers.destroy();
     for (const cleanup of this.cleanups) cleanup();
     this.cleanups = [];
   }

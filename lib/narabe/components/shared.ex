@@ -46,6 +46,13 @@ defmodule Narabe.Components.Shared do
         default: nil,
         doc: "why an item may not move (a string), or nil: a key or a function"
 
+      attr :issho, :list,
+        default: nil,
+        doc:
+          "the list's room with Issho (`Narabe.Issho`): `[instance: MyApp.Issho, document: \"board:7/cards\"]`"
+
+      attr :user, :any, default: nil, doc: "the person, with `issho`"
+
       attr :class, :any, default: nil
       attr :rest, :global, include: ~w(phx-target)
     end

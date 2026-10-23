@@ -464,17 +464,34 @@ defmodule NarabeDev.TreeLive do
   def handle_info(:changed, socket), do: {:noreply, load(socket)}
 end
 
+defmodule NarabeDev.Policy do
+  @moduledoc "The Issho policy of the development pages: everyone may do everything."
+  @behaviour Issho.Policy
+  @impl true
+  def authorize(_identity, _room, _action), do: :ok
+end
+
 defmodule NarabeDev.BoardLive do
-  @moduledoc "A kanban board: cards move within and across columns, and the columns move too."
+  @moduledoc """
+  A kanban board: cards move within and across columns, and the columns
+  move too. In an Issho room (Narabe.Issho): open it as two people
+  (`?user=ada`, `?user=ken`) to see each other drag, or let an agent move
+  a card.
+  """
   use Phoenix.LiveView
   import Narabe.Components
+  alias Issho.Tool.Context
   alias NarabeDev.{Card, Column, Repo}
 
   on_mount(NarabeDev.Live)
+  on_mount(Issho.Live)
 
-  def mount(_params, _session, socket) do
+  @room "board:demo"
+
+  def mount(params, _session, socket) do
     if connected?(socket), do: Phoenix.PubSub.subscribe(NarabeDev.PubSub, "board")
-    {:ok, load(socket)}
+    name = params["user"] || "ada"
+    {:ok, socket |> assign(user: %{id: name, name: String.capitalize(name)}) |> load()}
   end
 
   defp load(socket) do
@@ -495,7 +512,23 @@ defmodule NarabeDev.BoardLive do
     ~H"""
     <h1>A board</h1>
     <p class="lede">Drag cards within and across columns, and columns by their handle. On a phone, hold a card, then drag.</p>
-    <.board id="board" columns={@columns} cards={@cards} on_move="move" move_columns multiple label="Sprint" locale={@locale} item_label={:title}>
+    <p>
+      As <a href={"?user=#{if @user.id == "ken", do: "ada", else: "ken"}"}>{if @user.id == "ken", do: "Ada", else: "Ken"}</a> in another window,
+      or <button type="button" id="agent" phx-click="agent">let Claude move a card</button>
+    </p>
+    <.board
+      id="board"
+      columns={@columns}
+      cards={@cards}
+      on_move="move"
+      move_columns
+      multiple
+      label="Sprint"
+      locale={@locale}
+      item_label={:title}
+      issho={[instance: NarabeDev.Issho, document: "board:demo/cards"]}
+      user={@user}
+    >
       <:column :let={column}>{column.name}</:column>
       <:card :let={card}>
         <div>{card.title}</div>
@@ -526,6 +559,37 @@ defmodule NarabeDev.BoardLive do
     Repo.insert!(%Card{title: "New card", label: "new", column_id: column, position: position})
     changed({:ok, nil})
     {:noreply, load(socket)}
+  end
+
+  # The agent: it joins the room, picks up the first card of To do, and
+  # drags it to the top of Done, as people watch; the move lands as the
+  # app saves it.
+  def handle_event("agent", _params, socket) do
+    [todo | _] = socket.assigns.columns
+    done = List.last(socket.assigns.columns)
+    card = Enum.find(socket.assigns.cards, &(&1.column_id == todo.id))
+    first = Enum.find(socket.assigns.cards, &(&1.column_id == done.id))
+
+    if card do
+      move = %Narabe.Move{ids: [card.id], parent: done.id, before: first && first.id, index: 0}
+
+      Task.start(fn -> agent_move(move) end)
+    end
+
+    {:noreply, socket}
+  end
+
+  defp agent_move(move) do
+    ctx = Context.new(NarabeDev.Issho, %{id: "agent:claude", name: "Claude", kind: :agent})
+    {:ok, participant} = Context.join(ctx, @room)
+    Narabe.Issho.move(participant, "board:demo/cards", move, fn -> save(move) end, pace: 700)
+  end
+
+  defp save(move) do
+    with {:ok, _} = ok <- Narabe.Ecto.move(Repo, Card, move) do
+      Phoenix.PubSub.broadcast(NarabeDev.PubSub, "board", :changed)
+      ok
+    end
   end
 
   defp changed({:ok, _}),
@@ -649,7 +713,16 @@ Task.async(fn ->
 
   {:ok, _pid} =
     Supervisor.start_link(
-      [{Phoenix.PubSub, name: NarabeDev.PubSub}, NarabeDev.Repo, NarabeDev.Endpoint],
+      [
+        {Phoenix.PubSub, name: NarabeDev.PubSub},
+        NarabeDev.Repo,
+        {Issho,
+         name: NarabeDev.Issho,
+         pubsub: NarabeDev.PubSub,
+         policy: NarabeDev.Policy,
+         secret_key_base: String.duplicate("narabe-development-secret-", 3)},
+        NarabeDev.Endpoint
+      ],
       strategy: :one_for_one
     )
 

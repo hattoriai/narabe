@@ -16,6 +16,8 @@ end
 defmodule NarabeTest.Databases do
   @moduledoc "The databases of the tests: those NARABE_DBS names, each created afresh and migrated."
 
+  alias Ecto.Adapters.SQL.Sandbox
+
   @repos %{
     "postgres" => NarabeTest.Repo,
     "mysql" => NarabeTest.MyRepo,
@@ -37,7 +39,7 @@ defmodule NarabeTest.Databases do
       :ok = adapter.storage_up(config)
       {:ok, _pid} = repo.start_link()
       Ecto.Migrator.up(repo, 1, NarabeTest.Migration, log: false)
-      Ecto.Adapters.SQL.Sandbox.mode(repo, :manual)
+      Sandbox.mode(repo, :manual)
       name
     end
   end

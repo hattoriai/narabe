@@ -134,8 +134,113 @@ defmodule Narabe.Move do
   defp index(index) when is_integer(index) and index >= 0, do: {:ok, index}
   defp index(_other), do: {:error, :invalid_move}
 
-  # An item is not its own parent or neighbour.
+  # An item is not its own neighbour.
   defp distinct(ids, others) do
     if Enum.any?(others, &(&1 != nil and &1 in ids)), do: {:error, :invalid_move}, else: :ok
   end
+
+  @doc """
+  Applies a move to items in memory, in their order: a list, a board's
+  cards (each with its column in `:group`), or a tree's items, flat (each
+  with its parent in `:group`, and `tree: true`). For apps that keep the
+  order themselves, without `Narabe.Ecto`, and for tests.
+
+  Returns `{:ok, items}`, the items in their new order with the moved ones'
+  group set, or `{:error, reason}`: `:not_found` (an id that is not among
+  the items), or `:into_itself` (a tree item into itself or under itself).
+
+  Options:
+
+    * `:id` - an item's id: a key or a function (`:id`).
+    * `:group` - the key of its column or parent (none: one list).
+    * `:tree` - whether `:group` is a parent among the items.
+
+  ## Examples
+
+      iex> items = [%{id: 1}, %{id: 2}, %{id: 3}]
+      iex> {:ok, moved} = Narabe.Move.apply(items, %Narabe.Move{ids: [1], after: 3})
+      iex> Enum.map(moved, & &1.id)
+      [2, 3, 1]
+
+      iex> cards = [%{id: 1, col: :todo}, %{id: 2, col: :done}]
+      iex> {:ok, moved} = Narabe.Move.apply(cards, %Narabe.Move{ids: [1], parent: :done, before: 2}, group: :col)
+      iex> moved
+      [%{id: 1, col: :done}, %{id: 2, col: :done}]
+
+  """
+  @spec apply([term()], t(), keyword()) :: {:ok, [term()]} | {:error, :not_found | :into_itself}
+  def apply(items, %__MODULE__{} = move, opts \\ []) do
+    id = Narabe.Tree.getter(Keyword.get(opts, :id, :id))
+    group = Keyword.get(opts, :group)
+    ids = MapSet.new(move.ids)
+    by_id = Map.new(items, &{id.(&1), &1})
+
+    with :ok <- check_apply(move, by_id, ids, group, Keyword.get(opts, :tree, false)) do
+      moved = for i <- move.ids, do: put_group(by_id[i], group, move.parent)
+      rest = Enum.reject(items, &MapSet.member?(ids, id.(&1)))
+      at = insert_at(rest, move, id, group)
+      {:ok, Enum.take(rest, at) ++ moved ++ Enum.drop(rest, at)}
+    end
+  end
+
+  defp check_apply(move, by_id, ids, group, tree?) do
+    known? = &Map.has_key?(by_id, &1)
+
+    cond do
+      not Enum.all?(move.ids, known?) ->
+        {:error, :not_found}
+
+      Enum.any?([move.after, move.before], &(&1 != nil and not known?.(&1))) ->
+        {:error, :not_found}
+
+      not tree? or move.parent == nil ->
+        :ok
+
+      not known?.(move.parent) ->
+        {:error, :not_found}
+
+      under?(by_id, move.parent, ids, group) ->
+        {:error, :into_itself}
+
+      true ->
+        :ok
+    end
+  end
+
+  # Whether `parent` is one of the moved items or under one.
+  defp under?(by_id, parent, ids, group) do
+    Stream.unfold(parent, fn
+      nil -> nil
+      p -> {p, by_id[p] && fetch(by_id[p], group)}
+    end)
+    |> Enum.take(map_size(by_id) + 1)
+    |> Enum.any?(&MapSet.member?(ids, &1))
+  end
+
+  # Where in the remaining items: after `after`, before `before`, at the
+  # index among the new siblings, or after the last of them.
+  defp insert_at(rest, move, id, group) do
+    position = fn target -> Enum.find_index(rest, &(id.(&1) == target)) end
+
+    siblings =
+      for {item, i} <- Enum.with_index(rest),
+          group == nil or fetch(item, group) == move.parent,
+          do: i
+
+    cond do
+      move.after != nil -> position.(move.after) + 1
+      move.before != nil -> position.(move.before)
+      move.index != nil and move.index < length(siblings) -> Enum.at(siblings, move.index)
+      siblings != [] -> List.last(siblings) + 1
+      true -> length(rest)
+    end
+  end
+
+  defp put_group(item, nil, _parent), do: item
+  defp put_group(%{} = item, key, parent), do: Map.put(item, key, parent)
+  defp put_group(item, key, parent) when is_list(item), do: Keyword.put(item, key, parent)
+
+  defp fetch(_item, nil), do: nil
+  defp fetch(%{} = item, key), do: Map.get(item, key)
+  defp fetch(item, key) when is_list(item), do: Keyword.get(item, key)
 end

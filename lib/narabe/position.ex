@@ -179,10 +179,7 @@ defmodule Narabe.Position do
 
   # The midpoint of two fractions; `b` nil is the end.
   defp midpoint(a, b) do
-    if b != nil and a >= b, do: raise(ArgumentError, "Narabe: #{a} is not before #{b}")
-
-    if String.ends_with?(a, @zero) or (b != nil and String.ends_with?(b, @zero)),
-      do: raise(ArgumentError, "Narabe: a fraction ends in 0")
+    check_fractions!(a, b)
 
     case b && common_prefix(a, b, 0) do
       n when is_integer(n) and n > 0 ->
@@ -192,6 +189,13 @@ defmodule Narabe.Position do
       _none ->
         midpoint_digits(a, b)
     end
+  end
+
+  defp check_fractions!(a, b) do
+    if b != nil and a >= b, do: raise(ArgumentError, "Narabe: #{a} is not before #{b}")
+
+    if String.ends_with?(a, @zero) or (b != nil and String.ends_with?(b, @zero)),
+      do: raise(ArgumentError, "Narabe: a fraction ends in 0")
   end
 
   defp midpoint_digits(a, b) do
