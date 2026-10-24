@@ -13,6 +13,15 @@
  *      --sumi-accent-ink, --sumi-radius), for a page that sets them itself;
  *   3. the Sumi palette below, so that the lists look like Sumi on a page
  *      with no Sumi tokens.
+ *
+ * Dark and light: on a page with the Sumi themes, the lists follow them.
+ * Without them, the palette follows the data-theme attribute first (Sumi's
+ * seven: "dark", "smoke", "stone" and "lacquer" are dark; "light", "snow"
+ * and "silk" light), then prefers-color-scheme.
+ *
+ * Each Sumi theme has its own accent: the selection, the focus and the
+ * drop line. A colour of Narabe's own of the accent's hue is another in
+ * that theme, at the end, so that the two do not look alike.
  */
 
 /* The Sumi palette, light. */
@@ -24,27 +33,33 @@
   --narabe-sumi-content: oklch(15% 0.003 270);
   --narabe-sumi-muted: oklch(15% 0.003 270 / 0.65);
   --narabe-sumi-error: oklch(55% 0.22 25);
+  --narabe-sumi-match: color-mix(in oklab, #f5b400 40%, transparent);
 }
 
-/* The Sumi palette, dark: data-theme="dark", or a dark preference on a page
-   that does not ask for light. */
-[data-theme="dark"] {
+/* The Sumi palette, dark: Sumi's dark themes (Ink, Smoke, Stone, Lacquer),
+   or a dark preference on a page that does not ask for a light one. */
+[data-theme="dark"],
+[data-theme="smoke"],
+[data-theme="stone"],
+[data-theme="lacquer"] {
   --narabe-sumi-base-100: oklch(12% 0.003 270);
   --narabe-sumi-base-200: oklch(16% 0.004 270);
   --narabe-sumi-base-300: oklch(20% 0.005 270);
   --narabe-sumi-content: oklch(95% 0.012 85);
   --narabe-sumi-muted: oklch(95% 0.012 85 / 0.5);
   --narabe-sumi-error: oklch(58% 0.22 25);
+  --narabe-sumi-match: color-mix(in oklab, #f5b400 35%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme="light"], [data-theme="snow"], [data-theme="silk"]) {
     --narabe-sumi-base-100: oklch(12% 0.003 270);
     --narabe-sumi-base-200: oklch(16% 0.004 270);
     --narabe-sumi-base-300: oklch(20% 0.005 270);
     --narabe-sumi-content: oklch(95% 0.012 85);
     --narabe-sumi-muted: oklch(95% 0.012 85 / 0.5);
     --narabe-sumi-error: oklch(58% 0.22 25);
+    --narabe-sumi-match: color-mix(in oklab, #f5b400 35%, transparent);
   }
 }
 
@@ -65,10 +80,39 @@
   --narabe-refused: var(--color-error, var(--narabe-sumi-error));
   --narabe-hover: color-mix(in oklab, var(--narabe-text) 6%, var(--narabe-background));
   --narabe-selected: color-mix(in oklab, var(--narabe-accent) 12%, var(--narabe-background));
+  --narabe-match: var(--narabe-sumi-match);
   --narabe-shadow: 0 8px 24px color-mix(in oklab, var(--color-sumi-ink, #0a0a0b) 22%, transparent),
     0 0 0 1px var(--narabe-border);
   --narabe-card-shadow: 0 0 0 1px var(--narabe-border);
 
   --narabe-radius: var(--radius-box, var(--sumi-radius, 0.25rem));
   --narabe-inner-radius: var(--radius-box, var(--sumi-radius, 0.25rem));
+}
+
+/* A refused drop is red, and the drop line the accent. Where the accent is
+   red's hue or near it (blade in Ink and Paper, and on a page with no
+   theme; vermilion in Lacquer), a refused drop is rose instead, and in
+   Silk, whose lotus is a red pink, rust: so that a refused drop does not
+   look like one that is let through. */
+:root:where(:not([data-theme])),
+[data-theme="dark"],
+[data-theme="light"],
+[data-theme="lacquer"] {
+  --narabe-refused: oklch(57% 0.2 350);
+}
+
+[data-theme="silk"] {
+  --narabe-refused: oklch(55% 0.16 45);
+}
+
+/* Smoke's page is lighter than Ink's: a lighter red, for 3:1 on its
+   columns. */
+[data-theme="smoke"] {
+  --narabe-refused: oklch(68% 0.19 25);
+}
+
+/* Stone (gold): the filter's matches are sky blue, not amber, so that a
+   match does not look like a selected row. */
+[data-theme="stone"] {
+  --narabe-match: color-mix(in oklab, oklch(72% 0.13 235) 35%, transparent);
 }

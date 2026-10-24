@@ -154,6 +154,9 @@ mix narabe.build   # the bundle and the style sheets, into priv/static
 mix dev            # a list, a tree, a board and a picker at http://localhost:4097
 ```
 
+Every page of `mix dev` takes `theme=sumi` (and `dark=1`), or one of
+Sumi's seven themes, `sumi=smoke` (the links under the menu).
+
 ### Tests
 
 ```sh

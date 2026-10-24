@@ -52,9 +52,29 @@ does not follow `prefers-color-scheme` by itself.
 `narabe-sumi.css`, after `narabe.css`, maps every property to the Sumi
 tokens of the page: its daisyUI theme colors, or the short `--sumi-*`
 names (`--sumi-ink`, `--sumi-paper`, `--sumi-accent`, ...), or Sumi's own
-palette when the page has none. Its palette is dark under
-`data-theme="dark"`, and under a dark preference unless the page says
-`data-theme="light"`.
+palette when the page has none. Its palette is dark under Sumi's dark
+themes (`data-theme="dark"`, `"smoke"`, `"stone"`, `"lacquer"`), and
+under a dark preference unless the page has one of Sumi's light themes
+(`data-theme="light"`, `"snow"`, `"silk"`).
+
+Each of Sumi's seven themes (Ink, Smoke, Stone and Lacquer; Paper, Snow
+and Silk) has its own accent, and the selection, the focus, the drop
+line and the count of a drag follow it. Where a color of Narabe's own is
+of the accent's hue, it takes another in that theme, so that the two do
+not look alike:
+
+| Theme | Accent | Changed |
+| --- | --- | --- |
+| Ink, Paper | blade | a refused drop is rose, not red |
+| Lacquer | vermilion | a refused drop is rose, not red |
+| Silk | lotus pink | a refused drop is rust |
+| Smoke | jade | a refused drop is a lighter red, for 3:1 on its columns |
+| Stone | gold | the filter's matches are sky blue, not amber |
+
+A page with no `data-theme` has blade, and a rose refused drop.
+
+The development app (`mix dev`) shows every page in each: `?sumi=smoke`,
+or the links under its menu.
 
 ## Touch
 
