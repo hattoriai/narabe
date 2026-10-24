@@ -7,6 +7,21 @@ and Narabe follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The Sumi theme follows Sumi's seven themes and their accents: a
+  refused drop is rose where the accent is red's hue or near it (Ink,
+  Paper, Lacquer), and rust in Silk, so that it does not look like a drop
+  let through; the filter's matches are sky blue in Stone, so that they
+  do not look like a selected row. `mix dev` shows every page in each
+  (`?sumi=smoke`). See the Theming guide.
+
+### Fixed
+
+- The Sumi theme gave Sumi's dark themes other than Ink the light
+  palette, and Sumi's light themes other than Paper the dark one on a
+  system in dark mode. A refused drop was below 3:1 on Smoke's columns.
+
 ## [0.1.0] - Unreleased
 
 ### Added

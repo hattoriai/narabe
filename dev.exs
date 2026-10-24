@@ -8,8 +8,9 @@
 # The bundle rebuilds and the page reloads on a change.
 #
 # Query params of every page: `locale` (a BCP 47 locale), `theme=sumi`,
-# `dark=1`, `refuse=1` (the server refuses every move, and the page puts
-# the items back).
+# `dark=1`, `sumi=smoke` (the Sumi theme on one of Sumi's seven themes),
+# `refuse=1` (the server refuses every move, and the page puts the items
+# back).
 #
 # Environment:
 #
@@ -221,16 +222,67 @@ end
 defmodule NarabeDev.Layouts do
   @moduledoc """
   The root layout: the style sheets, the import map and the LiveSocket.
-  `?theme=sumi` also loads narabe-sumi.css; `?dark=1` is the dark theme.
+  `?theme=sumi` also loads narabe-sumi.css; `?dark=1` is the dark theme;
+  `?sumi=smoke` (any of Sumi's seven themes) loads narabe-sumi.css on that
+  theme of Sumi, to see every list in each.
   """
   use Phoenix.Component
 
+  # Sumi's themes, as the lists read them: the page, the surface, the line,
+  # the text, the muted text's alpha, the accent (blade), the text on it and
+  # the error (Sumi's own CSS needs Tailwind, which this app has not; these
+  # are its values).
+  @sumi_themes [
+    {"dark", "Ink", "oklch(12% 0.003 270)", "oklch(16% 0.004 270)", "oklch(20% 0.005 270)",
+     "oklch(95% 0.012 85)", 0.5, "#e84a1c", "oklch(12% 0.003 270)", "oklch(58% 0.22 25)"},
+    {"smoke", "Smoke", "oklch(27% 0.005 270)", "oklch(30.5% 0.006 270)", "oklch(34% 0.007 270)",
+     "oklch(92% 0.01 85)", 0.62, "oklch(72% 0.13 168)", "oklch(27% 0.005 270)",
+     "oklch(58% 0.22 25)"},
+    {"stone", "Stone", "oklch(20% 0.006 70)", "oklch(23.5% 0.007 70)", "oklch(27% 0.008 70)",
+     "oklch(95% 0.01 85)", 0.52, "oklch(78% 0.13 82)", "oklch(20% 0.006 70)",
+     "oklch(58% 0.22 25)"},
+    {"lacquer", "Lacquer", "oklch(14% 0.022 25)", "oklch(18% 0.026 25)", "oklch(22% 0.03 25)",
+     "oklch(93% 0.016 75)", 0.53, "oklch(63% 0.21 24)", "oklch(14% 0.022 25)",
+     "oklch(58% 0.22 25)"},
+    {"light", "Paper", "oklch(96% 0.01 85)", "oklch(93% 0.012 85)", "oklch(89% 0.014 80)",
+     "oklch(15% 0.003 270)", 0.65, "#e84a1c", "oklch(12% 0.003 270)", "oklch(55% 0.22 25)"},
+    {"snow", "Snow", "oklch(99.5% 0.001 270)", "oklch(97% 0.003 270)", "oklch(92.5% 0.005 270)",
+     "oklch(20% 0.006 270)", 0.65, "oklch(50% 0.17 262)", "oklch(100% 0 0)",
+     "oklch(55% 0.22 25)"},
+    {"silk", "Silk", "oklch(97.5% 0.012 350)", "oklch(95% 0.016 350)", "oklch(91.5% 0.02 350)",
+     "oklch(22% 0.012 350)", 0.65, "oklch(56% 0.21 358)", "oklch(100% 0 0)", "oklch(55% 0.22 25)"}
+  ]
+
+  defp sumi_style(id) do
+    case List.keyfind(@sumi_themes, id, 0) do
+      {_, _, page, surface, line, text, muted, accent, on_accent, error} ->
+        """
+        :root {
+          --color-base-100: #{page}; --color-base-200: #{surface}; --color-base-300: #{line};
+          --color-base-content: #{text}; --sumi-text-muted: oklch(from #{text} l c h / #{muted});
+          --color-sumi-blade: #{accent}; --color-primary-content: #{on_accent}; --color-error: #{error};
+        }
+        """
+
+      nil ->
+        ""
+    end
+  end
+
   def root(assigns) do
-    assigns = Map.put(assigns, :sumi, assigns.conn.params["theme"] == "sumi")
+    look = assigns.conn.params["sumi"]
+    look = if List.keymember?(@sumi_themes, look, 0), do: look
+
+    assigns =
+      assign(assigns,
+        sumi: assigns.conn.params["theme"] == "sumi" or look != nil,
+        look: look,
+        themes: @sumi_themes
+      )
 
     ~H"""
     <!DOCTYPE html>
-    <html lang="en" data-theme={@conn.params["dark"] && "dark"}>
+    <html lang="en" data-theme={@look || (@conn.params["dark"] && "dark")}>
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -238,10 +290,13 @@ defmodule NarabeDev.Layouts do
         <title>Narabe development</title>
         <link rel="stylesheet" href="/assets/narabe.css" />
         <link :if={@sumi} rel="stylesheet" href="/assets/narabe-sumi.css" />
+        {@look && Phoenix.HTML.raw("<style>" <> sumi_style(@look) <> "</style>")}
         <style>
           body { font-family: system-ui, sans-serif; margin: 0; background: var(--narabe-background); color: var(--narabe-text); }
           main { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1rem 6rem; }
           nav a { margin-right: 1rem; color: inherit; }
+          nav + nav { margin-top: 0.5rem; color: var(--narabe-muted); }
+          nav a[aria-current="page"] { color: var(--narabe-text); font-weight: 600; }
           h1 { font-size: 1.5rem; margin: 1.25rem 0 0.25rem; }
           .lede { color: var(--narabe-muted); margin: 0 0 1.25rem; }
           .panel { max-width: 26rem; border: 1px solid var(--narabe-border); border-radius: 10px; padding: 0.5rem; }
@@ -282,6 +337,13 @@ defmodule NarabeDev.Layouts do
             <a href="/tree">Tree</a>
             <a href="/board">Board</a>
             <a href="/picker">Picker</a>
+          </nav>
+          <nav aria-label="Sumi's themes">
+            Sumi: <a
+              :for={{id, name, _, _, _, _, _, _, _, _} <- @themes}
+              href={"?sumi=#{id}"}
+              aria-current={@look == id && "page"}
+            >{name}</a>
           </nav>
           {@inner_content}
         </main>
