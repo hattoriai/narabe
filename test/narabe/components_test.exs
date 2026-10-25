@@ -5,6 +5,8 @@ defmodule Narabe.ComponentsTest do
   import Phoenix.LiveViewTest
   import Narabe.Components
 
+  alias Narabe.Ecto.Mixed
+
   defp config(html, selector \\ "[phx-hook=Narabe]") do
     html
     |> LazyHTML.from_fragment()
@@ -84,7 +86,7 @@ defmodule Narabe.ComponentsTest do
 
   test "a tree of several tables: ids that say their kind, the kinds for the rules" do
     tree =
-      Narabe.Ecto.Mixed.new(
+      Mixed.new(
         [
           folder: [from: NarabeTest.Folder, parent: :parent_id],
           document: [from: NarabeTest.Document, parent: :folder_id]
@@ -92,7 +94,7 @@ defmodule Narabe.ComponentsTest do
         parents: :folder
       )
 
-    # As Narabe.Ecto.Mixed.items/2 gives them.
+    # As Mixed.items/2 gives them.
     items = [
       %{id: "folder:1", parent_id: nil, kind: "folder", record: %{name: "Docs"}},
       %{id: "document:1", parent_id: "folder:1", kind: "document", record: %{name: "Intro"}},
