@@ -130,7 +130,7 @@ defmodule Narabe.MixProject do
       groups_for_modules: [
         Components: [Narabe, Narabe.Components, Narabe.Live, Narabe.Messages, Narabe.Tree],
         "Order and moves": [Narabe.Move, Narabe.Rules, Narabe.Position],
-        Database: [Narabe.Ecto, Narabe.Ordered, Narabe.Migration],
+        Database: [Narabe.Ecto, Narabe.Ecto.Mixed, Narabe.Ordered, Narabe.Migration],
         "With Issho": [Narabe.Issho],
         Testing: [Narabe.Test]
       ]

@@ -37,7 +37,8 @@ end
 - **Lists, trees and boards.** A tree nests as deep as you like, picks
   the depth from where the pointer is (or Left and Right), opens a
   closed folder under the pointer, loads children as it opens, filters,
-  and renames in place. On a phone it can show one level at a time. A
+  and renames in place. Its items may be rows of several tables, as
+  folders and pages (`Narabe.Ecto.Mixed`). On a phone it can show one level at a time. A
   board moves cards within and across columns, and the columns too.
 - **Moves by ids.** A move says "after 12, in 7", not "to index 3", so a
   screen a moment out of date still means what the person meant. The

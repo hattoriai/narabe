@@ -158,3 +158,55 @@ dispatches `narabe:pick` in the page, with the id in its `detail`.
 `Narabe.Ecto.ancestors/4` gives an item's ancestors' ids, parent first;
 `Narabe.Ecto.descendants/4` its descendants' ids. Each is one recursive
 query. See the [Database](database.md) guide.
+
+## A tree of several tables
+
+Folders and the pages in them, sections and their lessons: often each
+kind of item has its own table. `Narabe.Ecto.Mixed` makes one tree of
+them, in which a folder's children, folders and pages alike, are one
+list in one order:
+
+```elixir
+tree =
+  Narabe.Ecto.Mixed.new(
+    [
+      folder: [from: where(Folder, space_id: ^space.id), parent: :parent_id],
+      page: [from: where(Page, space_id: ^space.id), parent: :folder_id]
+    ],
+    parents: :folder,
+    rules: [max_depth: 3]
+  )
+```
+
+Each table has its position column (`Narabe.Migration.position/2`) and
+its parent field; the folders' parent is a folder, and the pages' too.
+The kinds other than `parents:` hold nothing. An item's id in the tree
+is its kind and its key, `"folder:3"` or `"page:9"`, so the tree takes
+the items as `Narabe.Ecto.Mixed.items/2` gives them, with their kind:
+
+```heex
+<.tree
+  id="pages"
+  items={@items}
+  item_kind={:kind}
+  item_label={&(&1.record.title || &1.record.name)}
+  rules={@tree.rules}
+  on_move="move"
+>
+  <:item :let={item}>{item.record.title || item.record.name}</:item>
+</.tree>
+```
+
+and a move comes back to `Narabe.Ecto.Mixed.move/3`, which writes each
+moved row to its own table:
+
+```elixir
+def handle_event("move", params, socket) do
+  tree = socket.assigns.tree
+  result = Narabe.Ecto.Mixed.move(Repo, tree, Narabe.Move.parse!(params))
+  {:reply, Narabe.Live.reply(result), assign(socket, items: Narabe.Ecto.Mixed.items(Repo, tree))}
+end
+```
+
+A new row gets its place among its siblings of every kind with
+`Narabe.Ecto.Mixed.put_position/4` (or `insert_position/4`).
