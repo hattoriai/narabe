@@ -9,7 +9,7 @@ Narabe needs Elixir 1.18 or later, Phoenix 1.7.14 or 1.8, Phoenix
 LiveView 1.1 or later, and Ecto 3.13 or later. `Narabe.Migration` needs
 `ecto_sql`, which a Phoenix app has already.
 
-Add `{:narabe, "~> 0.1"}` to your deps, then:
+Add `{:narabe, "~> 0.2"}` to your deps, then:
 
 ```sh
 mix deps.get
