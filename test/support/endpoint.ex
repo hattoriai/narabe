@@ -17,6 +17,7 @@ defmodule NarabeTest.Router do
   scope "/" do
     pipe_through(:browser)
     live("/board", NarabeTest.BoardLive)
+    live("/group", NarabeTest.GroupLive)
   end
 end
 

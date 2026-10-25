@@ -5,7 +5,9 @@
 // items in the page at once and tells the server, which may say no, and
 // then they go back. A tree expands and collapses, loads its children as
 // it opens, filters, and renames in place; on a phone it may show one
-// level at a time.
+// level at a time. Lists of one group take each other's items: a drag
+// lands in the list under the pointer, and Tab takes a lifted item to the
+// next list.
 
 import { readConfig, Words, type Config } from "./config";
 import { DragSession, startsDrag } from "./drag";
@@ -22,10 +24,31 @@ export interface Transport {
 
 /** A drop, worked out: where, and whether the rules allow it. */
 interface Target {
+  /** The list it lands in: the drag's own, or another of its group. */
+  list: Narabe;
   gap: Gap;
   rows: Row[];
   group: Group | null;
   refusal: Refusal | null;
+}
+
+/** What a drag carries, for the list it would land in. */
+interface Carried {
+  source: Narabe;
+  ids: string[];
+  kinds: string[];
+  /** The height of the tallest moved subtree: 1 for items with no children. */
+  height: number;
+  /** The first item's level, where it was. */
+  level: number;
+  label: string;
+}
+
+/** Where the keyboard would drop: a gap, a depth, a board's column (its index). */
+interface Spot {
+  gap: number;
+  level: number;
+  group: number;
 }
 
 /** Where moved elements were, to put them back. */
@@ -41,6 +64,9 @@ const PHONE = "(pointer: coarse) and (max-width: 640px)";
 /** How long a closed row is held under a drag before it opens (ms). */
 const SPRING = 700;
 const SR = "position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap";
+
+/** The lists of each group (`group`), which take each other's items. */
+const sharing = new Map<string, Set<Narabe>>();
 
 export class Narabe {
   readonly id: string;
@@ -58,7 +84,13 @@ export class Narabe {
   private session: DragSession | null = null;
   private dragging: string[] = [];
   private target: Target | null = null;
-  private lifted: { ids: string[]; gap: number; level: number; group: number; snapshot: Snapshot[] } | null = null;
+  /** The keyboard's lift: the list it would land in, and where; `home` is where it was in its own list. */
+  private lifted: (Spot & { ids: string[]; list: Narabe; home: Spot }) | null = null;
+  /** What is dragged: this list's own drag, or another list's over this one. */
+  private carried: Carried | null = null;
+  /** The list this list's drag would land in, when it is another of its group. */
+  private receiving: Narabe | null = null;
+  private joined: string | null = null;
   private query = "";
   private drillAt: string | null = null;
   private renaming: HTMLInputElement | null = null;
@@ -119,6 +151,7 @@ export class Narabe {
   /** The server rendered again: the rows' state, as this list keeps it. */
   update(): void {
     this.config = readConfig(this.el);
+    this.join();
     const all = rows(this.el);
     // An item moved with the keyboard keeps the focus, even when the server's
     // render made it anew (a card in another column).
@@ -145,18 +178,22 @@ export class Narabe {
   }
 
   // Where this person is, for the others: the items they drag and where to, or the item they are on.
+  // Over another list of the group, that list's room sees where they would
+  // land, and this one's who holds the items.
   private tellPlace(): void {
-    if (this.dragging.length && this.target && !this.target.refusal) {
-      const gap = this.target.gap;
-      const place: Place = {
-        item: this.dragging[0],
-        count: this.dragging.length,
-        items: this.dragging,
-        drag: { parent: gap.parent, after: gap.shape === "inside" ? null : gap.after, before: gap.shape === "inside" ? null : gap.before, level: this.tree ? gap.level : null },
+    const target = this.target;
+    if (this.dragging.length) {
+      const held: Place = { item: this.dragging[0], count: this.dragging.length, items: this.dragging };
+      const gap = target && !target.refusal ? target.gap : null;
+      const drag = gap && {
+        parent: gap.parent,
+        after: gap.shape === "inside" ? null : gap.after,
+        before: gap.shape === "inside" ? null : gap.before,
+        level: target!.list.tree ? gap.level : null,
       };
-      this.peers.tell(place);
-    } else if (this.dragging.length) {
-      this.peers.tell({ item: this.dragging[0], count: this.dragging.length, items: this.dragging });
+      const other = target && target.list !== this ? target.list : null;
+      this.peers.tell(drag && !other ? { ...held, drag } : held);
+      other?.peers.tell(drag ? { item: held.item, count: held.count, drag } : null);
     } else {
       const focused = (document.activeElement as HTMLElement | null)?.closest?.<HTMLElement>("[data-narabe-item]");
       this.peers.tell(focused && this.el.contains(focused) ? { item: focused.dataset.id! } : null);
@@ -550,31 +587,34 @@ export class Narabe {
         break;
       }
     }
+    let spot: Spot = { gap, level: row.level, group: -1 };
     if (this.board) {
       const cols = groups(this.el);
       const group = cols.findIndex((g) => g.id === row.parent);
       const inColumn = without(rows(cols[group]!.body), new Set(ids));
-      gap = inColumn.findIndex((r) => r.id === all[first - 1]?.id);
-      this.lifted = { ids, gap, level: 1, group, snapshot: [] };
-    } else {
-      this.lifted = { ids, gap, level: row.level, group: -1, snapshot: [] };
+      spot = { gap: inColumn.findIndex((r) => r.id === all[first - 1]?.id), level: 1, group };
     }
+    this.lifted = { ...spot, ids, list: this, home: spot };
     this.dragging = ids;
+    this.carried = this.carry(ids);
     for (const id of ids) all.find((r) => r.id === id)?.el.classList.add("narabe-lifted");
     this.el.classList.add("narabe-moving");
-    this.say(this.words.t("lifted", { label: this.labelOf(ids) }));
-    this.showKeyboardTarget();
+    const elsewhere = this.receivers().filter((list) => list.takes(this)).length > 1;
+    // What was lifted, and how it moves, before where it is.
+    this.showKeyboardTarget(this.words.t("lifted", { label: this.labelOf(ids) }) + (elsewhere ? ` ${this.words.t("otherLists")}` : ""));
   }
 
   private liftedKey(e: KeyboardEvent): void {
     const lifted = this.lifted!;
+    const list = lifted.list;
+    const last = () => list.candidates(list.column(lifted.group)).length - 1;
     const step: Record<string, () => void> = {
       ArrowUp: () => (lifted.gap = Math.max(-1, lifted.gap - 1)),
-      ArrowDown: () => (lifted.gap = Math.min(this.candidates().length - 1, lifted.gap + 1)),
-      ArrowRight: () => (this.board ? this.moveColumn(1) : (lifted.level += 1)),
-      ArrowLeft: () => (this.board ? this.moveColumn(-1) : (lifted.level = Math.max(1, lifted.level - 1))),
+      ArrowDown: () => (lifted.gap = Math.min(last(), lifted.gap + 1)),
+      ArrowRight: () => (list.board ? this.moveColumn(1) : (lifted.level += 1)),
+      ArrowLeft: () => (list.board ? this.moveColumn(-1) : (lifted.level = Math.max(1, lifted.level - 1))),
       Home: () => (lifted.gap = -1),
-      End: () => (lifted.gap = this.candidates().length - 1),
+      End: () => (lifted.gap = last()),
     };
     if (e.key in step) {
       e.preventDefault?.();
@@ -588,52 +628,74 @@ export class Narabe {
       e.stopPropagation();
       this.cancelLift();
     } else if (e.key === "Tab") {
-      this.cancelLift();
+      // To the next list of the group (Shift: the one before); with none, the lift ends.
+      const next = this.nextList(e.shiftKey ? -1 : 1);
+      if (!next) return this.cancelLift();
+      e.preventDefault();
+      if (list === this) lifted.home = { gap: lifted.gap, level: lifted.level, group: lifted.group };
+      this.receive(next);
+      Object.assign(lifted, next === this ? lifted.home : { gap: -1, level: 1, group: next.board ? 0 : -1 }, { list: next });
+      this.showKeyboardTarget();
     }
   }
 
   private moveColumn(step: number): void {
     const lifted = this.lifted!;
-    const count = groups(this.el).length;
+    const list = lifted.list;
+    const count = groups(list.el).length;
     lifted.group = Math.max(0, Math.min(count - 1, lifted.group + step));
-    lifted.gap = Math.min(lifted.gap, this.candidates().length - 1);
+    lifted.gap = Math.min(lifted.gap, list.candidates(list.column(lifted.group)).length - 1);
   }
 
-  /** The rows a dragged item may land among: of its column on a board. */
-  private candidates(group?: Group | null): Row[] {
-    const scope = this.board ? (group ?? groups(this.el)[this.lifted?.group ?? 0])?.body : this.el;
+  /** A board's column by its index; null in a list or a tree. */
+  private column(index: number): Group | null {
+    return this.board ? groups(this.el)[index] ?? null : null;
+  }
+
+  /** The rows dragged items may land among: of a column on a board. */
+  private candidates(group: Group | null): Row[] {
+    const scope = this.board ? group?.body : this.el;
     if (!scope) return [];
-    return without(rows(scope), new Set(this.dragging)).filter((r) => !r.el.hidden || this.board);
+    return without(rows(scope), new Set(this.carried?.ids ?? this.dragging)).filter((r) => !r.el.hidden || this.board);
   }
 
-  private showKeyboardTarget(): void {
+  private showKeyboardTarget(before = ""): void {
     const lifted = this.lifted!;
-    const group = this.board ? groups(this.el)[lifted.group] ?? null : null;
+    const target = lifted.list.keyTarget(lifted);
+    lifted.level = target.gap.level;
+    this.target = target;
+    target.list.drawTarget(target);
+    this.tellPlace();
+    (target.gap.anchor?.el ?? target.rows[0]?.el ?? target.list.el).scrollIntoView({ block: "nearest" });
+    const where = target.list.describe(target);
+    this.say(before ? `${before} ${where}` : where);
+  }
+
+  /** Where the keyboard's lifted items would land in this list (theirs, or another of the group). */
+  private keyTarget(spot: Spot): Target {
+    const group = this.column(spot.group);
     const others = this.candidates(group);
     let gap = this.drilling
-      ? gapAt(others, lifted.gap, this.drillLevel(), false, this.drillAt)
-      : gapAt(others, lifted.gap, lifted.level, !!this.config.rules?.nest, group?.id ?? null);
-    lifted.level = gap.level;
+      ? gapAt(others, spot.gap, this.drillLevel(), false, this.drillAt)
+      : gapAt(others, spot.gap, spot.level, !!this.config.rules?.nest, group?.id ?? this.config.parent ?? null);
     // Under a closed row with children: at the end of them, unseen.
     if (this.tree && gap.anchor && gap.parent === gap.anchor.id && gap.anchor.children && !this.expanded.has(gap.anchor.id)) gap = inside(gap.anchor);
-    this.target = { gap, rows: others, group, refusal: this.refusal(gap, group) };
-    this.drawTarget();
-    this.tellPlace();
-    (gap.anchor?.el ?? others[0]?.el)?.scrollIntoView({ block: "nearest" });
-    this.say(this.describe(this.target));
+    return { list: this, gap, rows: others, group, refusal: this.refusal(gap, group) };
   }
 
   private dropLifted(): void {
     const target = this.target;
+    const carried = this.carried;
     const ids = this.lifted?.ids ?? [];
     this.endLift();
-    if (!target || target.refusal) {
-      this.say(target?.refusal ? `${this.words.t("refused")}: ${this.refusalText(target.refusal)}` : this.words.t("cancelled", { label: this.labelOf(ids) }));
+    if (!target || target.refusal || !carried) {
+      this.say(target?.refusal ? `${this.words.t("refused")}: ${target.list.refusalText(target)}` : this.words.t("cancelled", { label: this.labelOf(ids) }));
       return;
     }
-    this.apply(ids, target);
-    this.refocus = ids[0] ?? null;
-    rows(this.el).find((r) => r.id === ids[0])?.el.focus();
+    const list = target.list;
+    list.apply(target, carried);
+    list.refocus = ids[0] ?? null;
+    rows(list.el).find((r) => r.id === ids[0])?.el.focus();
   }
 
   private cancelLift(): void {
@@ -647,9 +709,101 @@ export class Narabe {
     this.el.classList.remove("narabe-moving");
     this.lifted = null;
     this.dragging = [];
+    this.ended();
+  }
+
+  // A drag or a lift ends: no list shows where it would land.
+  private ended(): void {
+    this.receiving?.unreceive();
+    this.receiving = null;
+    this.carried = null;
     this.target = null;
     this.line.hidden = true;
     this.tellPlace();
+  }
+
+  /** What a drag of these items of this list carries. */
+  private carry(ids: string[]): Carried {
+    const all = rows(this.el);
+    const moved = ids.map((id) => all.findIndex((r) => r.id === id)).filter((i) => i >= 0);
+    return {
+      source: this,
+      ids,
+      kinds: moved.map((i) => all[i]!.kind),
+      height: Math.max(1, ...moved.map((i) => height(all, i))),
+      level: moved.length ? all[moved[0]!]!.level : 1,
+      label: this.labelOf(ids),
+    };
+  }
+
+  // -- A group: lists that take each other's items -------------------------------------
+
+  private join(): void {
+    const name = this.config.group ?? null;
+    if (name === this.joined) return;
+    if (this.joined) sharing.get(this.joined)?.delete(this);
+    this.joined = name;
+    if (!name) return;
+    if (!sharing.has(name)) sharing.set(name, new Set());
+    sharing.get(name)!.add(this);
+  }
+
+  /** The lists a drag of this one may land in, this one too, in the page's order. */
+  private receivers(): Narabe[] {
+    const others = this.joined ? Array.from(sharing.get(this.joined) ?? []).filter((list) => list !== this && list.el.isConnected && list.canMove) : [];
+    return [this, ...others].sort((a, b) => (a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+  }
+
+  /** Whether this list takes items from a list of its group (`accept`). */
+  private takes(source: Narabe): boolean {
+    return source === this || !this.config.accept || this.config.accept.includes(source.id);
+  }
+
+  /** The list Tab takes the lifted items to (Shift+Tab: the one before), or none. */
+  private nextList(step: number): Narabe | null {
+    const lists = this.receivers().filter((list) => list.takes(this));
+    if (lists.length < 2) return null;
+    const at = Math.max(0, lists.indexOf(this.lifted!.list));
+    return lists[(at + step + lists.length) % lists.length]!;
+  }
+
+  // The drag would now land in another list: it shows where, and the one before stops.
+  private receive(list: Narabe): void {
+    const was = this.receiving ?? this;
+    if (list === was) return;
+    if (was === this) this.springLoad(null, null);
+    else was.unreceive();
+    this.receiving = list === this ? null : list;
+    this.line.hidden = true;
+    this.session?.scrollIn(list.el.querySelector<HTMLElement>("[data-narabe-item]") ?? list.el);
+    if (list === this) return;
+    list.carried = this.carried;
+    list.el.classList.add("narabe-receiving");
+  }
+
+  /** Another list's drag is no longer over this one. */
+  private unreceive(): void {
+    this.springLoad(null, null);
+    this.carried = null;
+    this.el.classList.remove("narabe-receiving");
+    this.line.hidden = true;
+    this.peers.tell(null);
+  }
+
+  /** The list of the group under the pointer; else the one the drag was last over. */
+  private listAt(x: number, y: number): Narabe {
+    const under = this.receivers().filter((list) => {
+      const r = list.el.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    });
+    return under[under.length - 1] ?? this.receiving ?? this;
+  }
+
+  // Items of this list landed in another of its group, and its server kept them.
+  private left(ids: string[], to: Narabe): void {
+    const detail = { v: 1, ids, to: to.id };
+    this.el.dispatchEvent(new CustomEvent("narabe:leave", { bubbles: true, detail }));
+    if (this.config.onLeave) this.transport?.push(this.config.onLeave, detail);
   }
 
   // -- Moving with a pointer --------------------------------------------------------
@@ -669,17 +823,19 @@ export class Narabe {
     this.session = new DragSession(e, row.el, {
       lift: () => {
         this.dragging = ids;
+        this.carried = this.carry(ids);
         for (const r of rows(this.el)) if (ids.includes(r.id)) r.el.classList.add("narabe-lifted");
         this.el.classList.add("narabe-moving");
         this.say(this.words.t("lifted", { label: this.labelOf(ids) }));
         return this.ghost(row, ids.length);
       },
-      move: (x, y) => this.pointerTarget(x, y),
+      move: (x, y) => this.pointerMove(x, y),
       drop: () => {
         const target = this.target;
+        const carried = this.carried;
         this.endDrag();
-        if (target && !target.refusal) this.apply(ids, target);
-        else if (target?.refusal) this.say(`${this.words.t("refused")}: ${this.refusalText(target.refusal)}`);
+        if (target && !target.refusal && carried) target.list.apply(target, carried);
+        else if (target?.refusal) this.say(`${this.words.t("refused")}: ${target.list.refusalText(target)}`);
       },
       cancel: () => {
         const was = this.dragging.length > 0;
@@ -690,14 +846,12 @@ export class Narabe {
   }
 
   private endDrag(): void {
-    this.springLoad(null, 0, 0);
+    this.springLoad(null, null);
     this.session = null;
     for (const row of rows(this.el)) row.el.classList.remove("narabe-lifted");
     this.el.classList.remove("narabe-moving");
     this.dragging = [];
-    this.target = null;
-    this.line.hidden = true;
-    this.tellPlace();
+    this.ended();
   }
 
   private ghost(row: Row, count: number): HTMLElement {
@@ -719,7 +873,19 @@ export class Narabe {
     return ghost;
   }
 
-  private pointerTarget(x: number, y: number): void {
+  // The pointer moved: the list under it (this one, or another of its group) finds where the items would land.
+  private pointerMove(x: number, y: number): void {
+    const list = this.listAt(x, y);
+    this.receive(list);
+    const target = list.pointerTarget(x, y, this.session ? this.session.left : x, () => this.pointerMove(x, y));
+    if (!target) return;
+    this.target = target;
+    list.drawTarget(target);
+    this.tellPlace();
+  }
+
+  /** Where items dragged to (x, y) would land in this list; `left` is where the dragged items' left edge is. */
+  private pointerTarget(x: number, y: number, left: number, again: () => void): Target | null {
     const nest = !!this.config.rules?.nest;
     let group: Group | null = null;
     if (this.board) {
@@ -728,50 +894,50 @@ export class Narabe {
         const r = g.el.getBoundingClientRect();
         return x >= r.left && x <= r.right;
       }) ?? nearest(cols, x);
-      if (!group) return;
+      if (!group) return null;
     }
     const others = this.candidates(group);
     const rects = others.map((r) => r.el.getBoundingClientRect());
     let gap: Gap;
     if (this.tree && nest && !this.drilling) {
       const zone = zoneAtY(others, rects, y, (r) => this.mayHold(r));
-      this.springLoad(zone.into && !this.expanded.has(zone.into.id) && zone.into.children ? zone.into.id : null, x, y);
-      if (zone.into && !this.expanded.has(zone.into.id) && zone.into.children) {
-        gap = inside(zone.into);
+      const closed = zone.into && !this.expanded.has(zone.into.id) && zone.into.children ? zone.into : null;
+      this.springLoad(closed ? closed.id : null, again);
+      if (closed) {
+        gap = inside(closed);
       } else if (zone.into) {
         gap = gapAt(others, zone.gap, zone.into.level + 1, true);
-      } else {
+      } else if (this.carried?.source === this) {
         const indent = this.indent();
-        const left = (this.el.querySelector<HTMLElement>("[data-narabe-body]") ?? this.el).getBoundingClientRect().left;
+        const start = (this.el.querySelector<HTMLElement>("[data-narabe-body]") ?? this.el).getBoundingClientRect().left;
         // The dragged row's own level, and a level for each indent the pointer moved sideways.
-        const base = rows(this.el).find((r) => r.id === this.dragging[0])?.level ?? 1;
-        const depth = base + Math.round(((this.session ? this.session.left : x) - left) / indent);
-        gap = gapAt(others, zone.gap, depth, true);
+        gap = gapAt(others, zone.gap, this.carried.level + Math.round((left - start) / indent), true);
+      } else {
+        // From another list: at the level of the row above.
+        gap = gapAt(others, zone.gap, others[zone.gap]?.level ?? 1, true);
       }
     } else {
-      const parent = this.drilling ? this.drillAt : group?.id ?? null;
+      const parent = this.drilling ? this.drillAt : group?.id ?? this.config.parent ?? null;
       gap = gapAt(others, gapAtY(others, rects, y), this.drilling ? this.drillLevel() : 1, false, parent);
     }
-    this.target = { gap, rows: others, group, refusal: this.refusal(gap, group) };
-    this.drawTarget();
-    this.tellPlace();
+    return { list: this, gap, rows: others, group, refusal: this.refusal(gap, group) };
   }
 
   // A closed row held under a drag for a moment opens, as a folder does in
   // a file manager: the items may then land anywhere in it.
   private spring: { id: string; timer: ReturnType<typeof setTimeout> } | null = null;
 
-  private springLoad(id: string | null, x: number, y: number): void {
+  private springLoad(id: string | null, again: (() => void) | null): void {
     if (this.spring?.id === id) return;
     if (this.spring) clearTimeout(this.spring.timer);
-    this.spring = id
+    this.spring = id && again
       ? {
           id,
           timer: setTimeout(() => {
             this.spring = null;
-            if (!this.session?.active) return;
+            if (!this.carried) return;
             this.expand(id, true);
-            this.pointerTarget(x, y);
+            again();
           }, SPRING),
         }
       : null;
@@ -865,21 +1031,21 @@ export class Narabe {
   // -- The target: rules, drawing, words ------------------------------------------------
 
   private refusal(gap: Gap, group: Group | null): Refusal | null {
-    const all = rows(this.el);
-    const moved = this.dragging.map((id) => all.findIndex((r) => r.id === id)).filter((i) => i >= 0);
-    const parentRow = this.tree && gap.parent ? all.find((r) => r.id === gap.parent) : null;
+    const carried = this.carried;
+    if (!carried) return null;
+    // A list of the group that does not take this one's items (`accept`).
+    if (!this.takes(carried.source)) return "not_accepted";
+    const parentRow = this.tree && gap.parent ? rows(this.el).find((r) => r.id === gap.parent) : null;
     return check(this.config.rules ?? {}, {
-      kinds: moved.map((i) => all[i]!.kind),
+      kinds: carried.kinds,
       parentKind: parentRow ? parentRow.kind : group ? group.kind : null,
       parentDepth: parentRow ? parentRow.level : 0,
-      height: Math.max(1, ...moved.map((i) => height(all, i))),
+      height: carried.height,
       intoItself: false,
     });
   }
 
-  private drawTarget(): void {
-    const target = this.target;
-    if (!target) return;
+  private drawTarget(target: Target): void {
     const { gap, rows: others, group } = target;
     const box = this.el.getBoundingClientRect();
     const s = this.line.style;
@@ -904,17 +1070,21 @@ export class Narabe {
   }
 
   private describe(target: Target): string {
-    if (target.refusal) return `${this.words.t("refused")}: ${this.refusalText(target.refusal)}`;
-    const label = this.labelOf(this.dragging);
+    if (target.refusal) return `${this.words.t("refused")}: ${this.refusalText(target)}`;
+    const label = this.carried?.label ?? this.labelOf(this.dragging);
     const position = this.words.number(target.gap.index + 1);
     const count = this.words.number(target.gap.count);
-    const parent = target.gap.parent ? (this.tree ? rows(this.el).find((r) => r.id === target.gap.parent)?.label : target.group?.label) : null;
+    let parent = target.gap.parent ? (this.tree ? rows(this.el).find((r) => r.id === target.gap.parent)?.label : target.group?.label) : null;
+    // In another list of the group: its name, when no parent says where.
+    if (!parent && this.carried && this.carried.source !== this) parent = this.config.label ?? this.id;
     return parent ? this.words.t("movedIn", { label, parent, position, count }) : this.words.t("moved", { label, position, count });
   }
 
-  private refusalText(refusal: Refusal): string {
-    const parent = this.target?.gap.parent ? rows(this.el).find((r) => r.id === this.target!.gap.parent)?.label ?? this.target?.group?.label ?? "" : "";
-    return refusal === "too_deep" ? this.words.t("tooDeep") : refusal === "into_itself" ? this.words.t("intoItself") : this.words.t("notAccepted", { parent });
+  private refusalText(target: Target): string {
+    if (target.refusal === "too_deep") return this.words.t("tooDeep");
+    if (target.refusal === "into_itself") return this.words.t("intoItself");
+    const parent = target.gap.parent ? rows(this.el).find((r) => r.id === target.gap.parent)?.label ?? target.group?.label : null;
+    return this.words.t("notAccepted", { parent: parent ?? this.config.label ?? "" });
   }
 
   private labelOf(ids: string[]): string {
@@ -924,15 +1094,21 @@ export class Narabe {
 
   // -- Applying a move: the page first, then the server -----------------------------------
 
-  private apply(ids: string[], target: Target): void {
-    const all = rows(this.el);
+  // The carried items land in this list, from it or from another of its
+  // group; the move goes to this list's server, and on its error both
+  // lists go back.
+  private apply(target: Target, carried: Carried): void {
     const { gap, group } = target;
+    const { ids, source } = carried;
+    const own = source === this;
+    const all = rows(this.el);
+    const from = own ? all : rows(source.el);
     const shape = (list: Row[]) => list.map((r) => `${r.id}/${r.el.dataset.level}/${r.el.dataset.parent ?? ""}/${r.el.parentElement === null ? "" : (r.el.closest("[data-narabe-group]") as HTMLElement | null)?.dataset.id ?? ""}`).join(" ");
     const was = shape(all);
     const snapshot: Snapshot[] = [];
     const blocks = ids.map((id) => {
-      const index = all.findIndex((r) => r.id === id);
-      return this.tree ? subtree(all, index) : [all[index]!];
+      const index = from.findIndex((r) => r.id === id);
+      return source.tree ? subtree(from, index) : [from[index]!];
     });
     for (const block of blocks) for (const row of block) snapshot.push({ el: row.el, parent: row.el.parentNode!, next: row.el.nextSibling, level: row.el.dataset.level, parentId: row.el.dataset.parent });
 
@@ -957,7 +1133,10 @@ export class Narabe {
       const delta = gap.level - block[0]!.level;
       for (const row of block) {
         row.el.dataset.level = String(row.level + delta);
-        moved.push(row.el);
+        // A list or a board shows no children: they go with their item, unseen, until the server renders.
+        if (row === block[0] || this.tree) moved.push(row.el);
+        else row.el.remove();
+        if (!own && source.expanded.has(row.id)) this.expanded.add(row.id);
       }
       block[0]!.el.dataset.parent = gap.parent ?? "";
     }
@@ -965,24 +1144,47 @@ export class Narabe {
     else if (container) container.prepend(...moved);
     if (gap.shape === "inside" && gap.parent) this.expanded.add(gap.parent);
     this.update();
+    if (!own) source.update();
     // Dropped where they were: nothing to tell the server.
-    if (shape(rows(this.el)) === was) return this.say(this.words.t("cancelled", { label: this.labelOf(ids) }));
+    if (own && shape(rows(this.el)) === was) return this.say(this.words.t("cancelled", { label: this.labelOf(ids) }));
 
-    const payload = { v: 1, ids, parent: gap.parent, after: gap.shape === "inside" ? null : gap.after, before: gap.shape === "inside" ? null : gap.before, index: gap.shape === "inside" ? null : gap.index };
+    const payload = {
+      v: 1,
+      ids,
+      parent: gap.parent,
+      after: gap.shape === "inside" ? null : gap.after,
+      before: gap.shape === "inside" ? null : gap.before,
+      index: gap.shape === "inside" ? null : gap.index,
+      ...(own ? {} : { from: source.id }),
+    };
     this.say(this.words.t("dropped", { label: this.labelOf(ids), position: this.words.number(gap.index + 1), count: this.words.number(gap.count) }));
     this.el.dispatchEvent(new CustomEvent("narabe:move", { bubbles: true, detail: payload }));
-    this.push(payload, () => {
-      for (const s of snapshot.reverse()) {
-        s.parent.insertBefore(s.el, s.next);
-        if (s.level !== undefined) s.el.dataset.level = s.level;
-        if (s.parentId !== undefined) s.el.dataset.parent = s.parentId;
-      }
-      this.update();
-    });
+    this.push(
+      payload,
+      () => {
+        for (const s of snapshot.reverse()) {
+          s.parent.insertBefore(s.el, s.next);
+          if (s.level !== undefined) s.el.dataset.level = s.level;
+          if (s.parentId !== undefined) s.el.dataset.parent = s.parentId;
+          else delete s.el.dataset.parent;
+        }
+        this.update();
+        if (!own) source.update();
+      },
+      own ? undefined : () => {
+        // A stream keeps what it has: once its server inserted the items, the moved copies go.
+        for (const el of moved) {
+          const twin = rows(this.el).some((r) => r.el !== el && r.id === el.dataset.id);
+          if (twin && el.parentElement?.getAttribute("phx-update") === "stream") el.remove();
+        }
+        this.update();
+        source.left(ids, this);
+      },
+    );
   }
 
   // Tells the server; on its error, the page goes back.
-  private push(payload: object, revert: () => void): void {
+  private push(payload: object, revert: () => void, kept?: () => void): void {
     if (!this.config.onMove || !this.transport) return;
     this.transport.push(this.config.onMove, payload, (reply) => {
       if (reply && reply.error) {
@@ -992,6 +1194,8 @@ export class Narabe {
         const why = typeof reply.message === "string" ? reply.message : known[reason] ? this.words.t(known[reason]!) : "";
         this.say(why ? `${this.words.t("failed")}: ${why}` : this.words.t("failed"));
         this.el.dispatchEvent(new CustomEvent("narabe:refused", { bubbles: true, detail: reply }));
+      } else {
+        kept?.();
       }
     });
   }
@@ -1107,6 +1311,9 @@ export class Narabe {
 
   destroy(): void {
     this.session?.abort();
+    if (this.lifted) this.endLift();
+    if (this.joined) sharing.get(this.joined)?.delete(this);
+    this.joined = null;
     this.peers.destroy();
     for (const cleanup of this.cleanups) cleanup();
     this.cleanups = [];

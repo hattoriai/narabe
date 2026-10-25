@@ -46,6 +46,22 @@ defmodule Narabe.TestTest do
     assert view |> element("#picked") |> render() =~ "3"
   end
 
+  test "moves between the lists of a group: to a component's list, back, and on_leave" do
+    {:ok, view, _html} = live(build_conn(), "/group")
+
+    move(view, "someday-list", 1, parent: 2, after: 3, from: "launch")
+    assert view |> element("#someday-params") |> render() =~ "&quot;from&quot;:&quot;launch&quot;"
+    assert items(view, "launch") == ["Ship"]
+    assert items(view, "someday-list") == ["Rest", "Write"]
+
+    move(view, "launch", 3, parent: 1, before: 2, from: "someday-list")
+    assert_reply(view, %{ok: true})
+    assert items(view, "launch") == ["Rest", "Ship"]
+
+    leave(view, "launch", [2], "someday-list")
+    assert view |> element("#left") |> render() =~ "2 to someday-list"
+  end
+
   test "an unknown list, or one without the event", %{view: view} do
     assert_raise ArgumentError, ~r/no list/, fn -> move(view, "nope", 1) end
     assert_raise ArgumentError, ~r/no onRename/, fn -> rename(view, "tasks", 1, "x") end

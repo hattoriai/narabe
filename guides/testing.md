@@ -25,7 +25,10 @@ rendered LiveView. The list's id may have a `#` in front.
 
 * `move/4` sends `on_move`: the ids (one or a list) and `:after`,
   `:before`, `:parent` and `:index`, as in `Narabe.Move`. `columns: true`
-  moves a board's columns.
+  moves a board's columns; `:from`, the id of another list of the
+  group, is a drop from it.
+* `leave/4` sends `on_leave`: items that landed in another list of the
+  group.
 * `expand/3` sends `on_expand` for a tree item whose children are not
   loaded.
 * `rename/4` sends `on_rename`.

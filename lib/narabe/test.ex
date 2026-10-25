@@ -31,7 +31,9 @@ defmodule Narabe.Test do
 
   Options: `:after`, `:before` (a neighbour's id), `:parent` (a tree
   item's or a board column's id), `:index` (its place among its new
-  siblings), and `columns: true` for a board's columns.
+  siblings), `:from` (the id of another list of the group the items come
+  from, as a drop from it sends), and `columns: true` for a board's
+  columns.
   """
   @spec move(struct(), String.t(), term() | [term()], keyword()) :: String.t()
   def move(view, list_id, ids, opts \\ []) do
@@ -41,12 +43,24 @@ defmodule Narabe.Test do
         parent: opts[:parent],
         after: opts[:after],
         before: opts[:before],
-        index: opts[:index]
+        index: opts[:index],
+        from: opts[:from]
       }
       |> Narabe.Move.to_params()
 
     params = if opts[:columns], do: Map.put(params, "columns", true), else: params
     push(view, list_id, "onMove", params, "move/4")
+  end
+
+  @doc """
+  Says that items of a list landed in another list of its group, and
+  stayed there: sends the list's `on_leave`, as its hook does once the
+  other list's server kept them.
+  """
+  @spec leave(struct(), String.t(), term() | [term()], String.t()) :: String.t()
+  def leave(view, list_id, ids, to) do
+    params = %{"v" => 1, "ids" => ids |> List.wrap() |> Enum.map(&to_string/1), "to" => to}
+    push(view, list_id, "onLeave", params, "leave/4")
   end
 
   @doc "Opens a tree item whose children are not loaded: sends `on_expand`."

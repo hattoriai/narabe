@@ -30,6 +30,10 @@ defmodule Narabe.Components do
   to put the items back (`Narabe.Live.reply/1` makes the reply from what
   `Narabe.Ecto.move/4` returned). A refused move tells the person why.
 
+  Lists, trees and boards with the same `group` take each other's items:
+  a drop in another list of the group sends that list's `on_move`, with
+  the list the items came from as `"from"`. See the Groups guide.
+
   The items are structs or maps; the component reads their id from `:id`
   and a label for screen readers from `:name`, `:title` or `:label`, or
   from the functions `item_id` and `item_label`. A list's items may be a
@@ -63,6 +67,10 @@ defmodule Narabe.Components do
       "onSelect" => assigns[:on_select],
       "onExpand" => assigns[:on_expand],
       "onRename" => assigns[:on_rename],
+      "onLeave" => assigns[:on_leave],
+      "group" => assigns[:group],
+      "accept" => assigns[:accept] && Enum.map(assigns.accept, &to_string/1),
+      "parent" => assigns[:parent] && to_string(assigns.parent),
       "handle" => assigns[:handle],
       "multiple" => assigns[:multiple],
       "readonly" => assigns[:readonly],
@@ -145,9 +153,18 @@ defmodule Narabe.Components do
   `items` is a list or a stream (`@streams.tasks`). With a stream, insert
   and delete as usual; after a move, `Narabe.Live.stream_move/4` puts the
   item in its new place for every other viewer.
+
+  With `parent`, the list's moves say it as their `"parent"`, as a board's
+  column does: the project of a list of tasks, for moves between the lists
+  of a `group`.
   """
   shared_attrs()
   attr :items, :any, required: true, doc: "the items, in their order: a list or a stream"
+
+  attr :parent, :any,
+    default: nil,
+    doc: "the id its moves give as `parent` (a project of a list of tasks); nil by default"
+
   slot :item, doc: "an item, given as `:let`; its label by default"
   slot :actions, doc: "buttons a finger swipes into view (a phone), given the item as `:let`"
 

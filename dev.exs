@@ -1,6 +1,7 @@
 # The Narabe development server: `mix dev`, then http://localhost:4097.
 #
-# A list, a tree, a board and a tree picker, kept in SQLite through
+# A list, a tree, a board, a tree picker, and lists whose items move
+# between them (a group), kept in SQLite through
 # Narabe.Ecto (tmp/dev-PORT.sqlite3, made afresh at each start). Open a page in
 # two windows: a move in one shows in the other. The browser tests in e2e/
 # run against it.
@@ -86,6 +87,20 @@ defmodule NarabeDev.Migration do
     end
 
     create(index(:cards, [:column_id, :position]))
+
+    create table(:projects) do
+      add(:name, :string)
+      position()
+    end
+
+    create table(:todos) do
+      add(:title, :string)
+      add(:kind, :string)
+      add(:project_id, references(:projects))
+      position()
+    end
+
+    create(index(:todos, [:project_id, :position]))
   end
 end
 
@@ -141,9 +156,33 @@ defmodule NarabeDev.Card do
   use Narabe.Ordered, group: :column_id
 end
 
+defmodule NarabeDev.Project do
+  use Ecto.Schema
+
+  schema "projects" do
+    field(:name, :string)
+    field(:position, :string)
+  end
+
+  use Narabe.Ordered
+end
+
+defmodule NarabeDev.Todo do
+  use Ecto.Schema
+
+  schema "todos" do
+    field(:title, :string)
+    field(:kind, :string)
+    field(:position, :string)
+    belongs_to(:project, NarabeDev.Project)
+  end
+
+  use Narabe.Ordered, group: :project_id, kind: :kind
+end
+
 defmodule NarabeDev.Seeds do
   @moduledoc "The made-up rows of the development pages."
-  alias NarabeDev.{Card, Column, Page, Repo, Task}
+  alias NarabeDev.{Card, Column, Page, Project, Repo, Task, Todo}
 
   def run do
     Ecto.Migrator.up(Repo, 1, NarabeDev.Migration, log: false)
@@ -152,7 +191,9 @@ defmodule NarabeDev.Seeds do
 
   # Every row again, as at the start (the browser tests start each test so).
   def reset do
-    for table <- ~w(cards columns tasks), do: Repo.query!("DELETE FROM #{table}")
+    for table <- ~w(cards columns tasks todos projects),
+        do: Repo.query!("DELETE FROM #{table}")
+
     Repo.query!("UPDATE pages SET parent_id = NULL")
     Repo.query!("DELETE FROM pages")
     # The ids start again at 1.
@@ -196,7 +237,24 @@ defmodule NarabeDev.Seeds do
       for {{title, label}, key} <- Enum.zip(cards, keys),
           do: Repo.insert!(%Card{title: title, label: label, column_id: column.id, position: key})
     end
+
+    projects = ["Launch", "Website", "Someday", "Errands"]
+    project_keys = Narabe.Position.between_many(nil, nil, length(projects))
+
+    for {name, key} <- Enum.zip(projects, project_keys) do
+      project = Repo.insert!(%Project{name: name, position: key})
+      todos = todos(name)
+      keys = Narabe.Position.between_many(nil, nil, length(todos))
+
+      for {{title, kind}, key} <- Enum.zip(todos, keys),
+          do: Repo.insert!(%Todo{title: title, kind: kind, project_id: project.id, position: key})
+    end
   end
+
+  defp todos("Launch"), do: [{"Write the launch post", "task"}, {"Record the demo", "task"}]
+  defp todos("Website"), do: [{"New pricing page", "task"}, {"Fix the footer", "task"}]
+  defp todos("Someday"), do: [{"Learn the cello", "task"}, {"Pick up the dry cleaning", "errand"}]
+  defp todos("Errands"), do: [{"Buy stamps", "errand"}, {"Return the library books", "errand"}]
 
   defp insert_pages(nodes, parent_id) do
     keys = Narabe.Position.between_many(nil, nil, max(length(nodes), 1))
@@ -305,6 +363,9 @@ defmodule NarabeDev.Layouts do
           pre { background: var(--narabe-surface); padding: 0.75rem; border-radius: 8px; font-size: 0.8125rem; overflow: auto; }
           .add { width: 100%; padding: 0.375rem; font: inherit; color: var(--narabe-muted); background: none; border: 0; border-radius: 6px; text-align: left; cursor: pointer; }
           .add:hover { background: var(--narabe-hover); }
+          .side { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; margin-top: 1rem; align-items: start; }
+          .side .panel { max-width: none; }
+          h2 { font-size: 1rem; margin: 0.25rem 0.5rem 0.5rem; }
         </style>
         <script type="importmap">
           {
@@ -337,6 +398,8 @@ defmodule NarabeDev.Layouts do
             <a href="/tree">Tree</a>
             <a href="/board">Board</a>
             <a href="/picker">Picker</a>
+            <a href="/group">Group</a>
+            <a href="/folders">Folders</a>
           </nav>
           <nav aria-label="Sumi's themes">
             Sumi: <a
@@ -364,6 +427,13 @@ defmodule NarabeDev.Live do
        refuse: params["refuse"] == "1",
        last_move: nil
      )}
+  end
+
+  @doc "A tree's pages as one line: `>` for each level under the top."
+  def outline(pages) do
+    pages
+    |> Narabe.Tree.rows()
+    |> Enum.map_join(" ", &"#{String.duplicate(">", &1.level - 1)}#{&1.item.title}")
   end
 
   @doc "Applies a move unless the page refuses them: what `Narabe.Ecto.move/4` returns."
@@ -460,13 +530,7 @@ defmodule NarabeDev.TreeLive do
         do: pages,
         else: Enum.reject(pages, &MapSet.member?(under, &1.id))
 
-    assign(socket, pages: shown, order: outline(pages))
-  end
-
-  defp outline(pages) do
-    pages
-    |> Narabe.Tree.rows()
-    |> Enum.map_join(" ", &"#{String.duplicate(">", &1.level - 1)}#{&1.item.title}")
+    assign(socket, pages: shown, order: NarabeDev.Live.outline(pages))
   end
 
   def render(assigns) do
@@ -703,13 +767,303 @@ defmodule NarabeDev.PickerLive do
   def handle_event("save", params, socket), do: {:noreply, assign(socket, posted: params)}
 end
 
+defmodule NarabeDev.GroupLive do
+  @moduledoc """
+  Lists of one group (`group="todos"`): a board of two projects, a
+  project's list in a component, and the errands in a LiveView of their
+  own, inside this one. Tasks move between them, by pointer, finger and
+  keyboard (Tab); the errands take errands only.
+  """
+  use Phoenix.LiveView
+  import Narabe.Components
+  alias NarabeDev.{Project, Repo, Todo}
+
+  on_mount(NarabeDev.Live)
+
+  def mount(_params, _session, socket) do
+    if connected?(socket), do: Phoenix.PubSub.subscribe(NarabeDev.PubSub, "todos")
+    {:ok, socket |> assign(left: nil) |> load()}
+  end
+
+  defp load(socket) do
+    projects = Project |> Narabe.Ecto.ordered() |> Repo.all()
+    todos = Todo |> Narabe.Ecto.ordered() |> Repo.all()
+    by_name = Map.new(projects, &{&1.name, &1})
+
+    order =
+      Enum.map_join(projects, " | ", fn p ->
+        p.name <>
+          ": " <>
+          (todos |> Enum.filter(&(&1.project_id == p.id)) |> Enum.map_join(",", & &1.title))
+      end)
+
+    assign(socket,
+      columns: [by_name["Launch"], by_name["Website"]],
+      someday: by_name["Someday"],
+      todos: todos,
+      order: order
+    )
+  end
+
+  def render(assigns) do
+    ~H"""
+    <h1>Lists of a group</h1>
+    <p class="lede">Drag a task between the board and the lists, or lift it with Space and press Tab for the next list. The errands take errands only.</p>
+    <.board
+      id="week"
+      columns={@columns}
+      cards={@todos}
+      card_column={:project_id}
+      group="todos"
+      on_move="move"
+      item_label={:title}
+      item_kind={:kind}
+      label="Week"
+      locale={@locale}
+    >
+      <:column :let={project}>{project.name}</:column>
+      <:card :let={todo}>
+        <div>{todo.title}</div>
+        <span class="tag">{todo.kind}</span>
+      </:card>
+    </.board>
+    <div class="side">
+      <.live_component
+        module={NarabeDev.ProjectList}
+        id="someday-project"
+        project={@someday}
+        todos={Enum.filter(@todos, &(&1.project_id == @someday.id))}
+        refuse={@refuse}
+        locale={@locale}
+      />
+      {live_render(@socket, NarabeDev.ErrandsLive,
+        id: "errands-live",
+        session: %{"refuse" => @refuse, "locale" => @locale}
+      )}
+    </div>
+    <p>Projects: <span id="order">{@order}</span></p>
+    <pre id="last-move">{@last_move && JSON.encode!(@last_move)}</pre>
+    <pre id="last-leave">{@left && JSON.encode!(@left)}</pre>
+    """
+  end
+
+  def handle_event("move", params, socket) do
+    result = NarabeDev.Live.move(socket, Todo, Todo, params)
+    Phoenix.PubSub.broadcast(NarabeDev.PubSub, "todos", {:moved, params})
+    {:reply, Narabe.Live.reply(result), socket}
+  end
+
+  # A move of any list of the page (the errands' LiveView says it too).
+  def handle_info({:moved, params}, socket),
+    do: {:noreply, socket |> assign(last_move: params) |> load()}
+
+  def handle_info({:left, params}, socket), do: {:noreply, assign(socket, left: params)}
+  def handle_info(:changed, socket), do: {:noreply, load(socket)}
+end
+
+defmodule NarabeDev.ProjectList do
+  @moduledoc "A project's list in a component: its moves go to the component (`phx-target`)."
+  use Phoenix.LiveComponent
+  import Narabe.Components
+  alias NarabeDev.Todo
+
+  def render(assigns) do
+    ~H"""
+    <section class="panel">
+      <h2>{@project.name}</h2>
+      <.sortable_list
+        id="someday"
+        items={@todos}
+        parent={@project.id}
+        group="todos"
+        on_move="move"
+        on_leave="left"
+        item_label={:title}
+        item_kind={:kind}
+        label={@project.name}
+        locale={@locale}
+        phx-target={@myself}
+      >
+        <:item :let={todo}>{todo.title} <span class="tag">{todo.kind}</span></:item>
+      </.sortable_list>
+    </section>
+    """
+  end
+
+  def handle_event("move", params, socket) do
+    result = NarabeDev.Live.move(socket, Todo, Todo, params)
+    Phoenix.PubSub.broadcast(NarabeDev.PubSub, "todos", {:moved, params})
+    {:reply, Narabe.Live.reply(result), socket}
+  end
+
+  # Its tasks landed in another list, and stayed there.
+  def handle_event("left", params, socket) do
+    send(self(), {:left, params})
+    {:noreply, socket}
+  end
+end
+
+defmodule NarabeDev.ErrandsLive do
+  @moduledoc """
+  The errands, in a LiveView of their own inside the group's page
+  (`live_render`): its list takes errands only, in the browser (its
+  rules) and on the server.
+  """
+  use Phoenix.LiveView
+  import Ecto.Query
+  import Narabe.Components
+  alias NarabeDev.{Project, Repo, Todo}
+
+  def mount(_params, session, socket) do
+    if connected?(socket), do: Phoenix.PubSub.subscribe(NarabeDev.PubSub, "todos")
+    project = Repo.get_by!(Project, name: "Errands")
+
+    {:ok,
+     socket
+     |> assign(project: project, refuse: session["refuse"], locale: session["locale"] || "en")
+     |> load()}
+  end
+
+  defp load(socket) do
+    project = socket.assigns.project
+
+    assign(socket,
+      todos: Todo |> where(project_id: ^project.id) |> Narabe.Ecto.ordered() |> Repo.all()
+    )
+  end
+
+  def render(assigns) do
+    ~H"""
+    <section class="panel">
+      <h2>{@project.name}</h2>
+      <.sortable_list
+        id="errands"
+        items={@todos}
+        parent={@project.id}
+        group="todos"
+        rules={[accepts: %{"root" => ["errand"]}]}
+        on_move="move"
+        item_label={:title}
+        item_kind={:kind}
+        label={@project.name}
+        locale={@locale}
+      >
+        <:item :let={todo}>{todo.title} <span class="tag">{todo.kind}</span></:item>
+      </.sortable_list>
+    </section>
+    """
+  end
+
+  def handle_event("move", params, socket) do
+    move = Narabe.Move.parse!(params, Todo)
+    kinds = Todo |> where([t], t.id in ^move.ids) |> select([t], t.kind) |> Repo.all()
+
+    result =
+      if Enum.all?(kinds, &(&1 == "errand")),
+        do: NarabeDev.Live.move(socket, Todo, Todo, params),
+        else: {:error, :not_accepted}
+
+    Phoenix.PubSub.broadcast(NarabeDev.PubSub, "todos", {:moved, params})
+    {:reply, Narabe.Live.reply(result), socket}
+  end
+
+  def handle_info({:moved, _params}, socket), do: {:noreply, load(socket)}
+  def handle_info(:changed, socket), do: {:noreply, load(socket)}
+end
+
+defmodule NarabeDev.FoldersLive do
+  @moduledoc """
+  A tree of folders beside the main view of one folder, a list, in one
+  group (`group="pages"`): a page of the list goes into a folder of the
+  tree, and a folder of the tree into the list.
+  """
+  use Phoenix.LiveView
+  import Narabe.Components
+  alias NarabeDev.{Page, Repo}
+
+  on_mount(NarabeDev.Live)
+
+  def mount(_params, _session, socket) do
+    if connected?(socket), do: Phoenix.PubSub.subscribe(NarabeDev.PubSub, "pages")
+    handbook = Repo.get_by!(Page, title: "Handbook")
+    {:ok, socket |> assign(handbook: handbook) |> load()}
+  end
+
+  defp load(socket) do
+    pages = Page |> Narabe.Ecto.ordered() |> Repo.all()
+    handbook = socket.assigns.handbook
+
+    assign(socket,
+      folders: Enum.filter(pages, &(&1.kind == "folder")),
+      children: Enum.filter(pages, &(&1.parent_id == handbook.id)),
+      order: NarabeDev.Live.outline(pages)
+    )
+  end
+
+  def render(assigns) do
+    ~H"""
+    <h1>A tree and a list</h1>
+    <p class="lede">Drag a page of the Handbook into a folder of the tree, or a folder into the Handbook. Space lifts, Tab goes to the other one.</p>
+    <div class="side">
+      <div class="panel">
+        <.tree
+          id="folders"
+          items={@folders}
+          item_label={:title}
+          item_kind={:kind}
+          rules={Page}
+          expanded={Enum.map(@folders, & &1.id)}
+          group="pages"
+          on_move="move"
+          label="Folders"
+          locale={@locale}
+        />
+      </div>
+      <section class="panel">
+        <h2>{@handbook.title}</h2>
+        <.sortable_list
+          id="handbook"
+          items={@children}
+          parent={@handbook.id}
+          group="pages"
+          on_move="move"
+          item_label={:title}
+          item_kind={:kind}
+          label={@handbook.title}
+          locale={@locale}
+        >
+          <:item :let={page}>
+            <span class="kind" aria-hidden="true">{%{"folder" => "📁", "file" => "📎"}[page.kind] || "📄"}</span>
+            <span data-narabe-label>{page.title}</span>
+          </:item>
+        </.sortable_list>
+      </section>
+    </div>
+    <p>Outline: <span id="order">{@order}</span></p>
+    <pre id="last-move">{@last_move && JSON.encode!(@last_move)}</pre>
+    """
+  end
+
+  # Both lists send their moves here: a page's parent, in the tree or the list.
+  def handle_event("move", params, socket) do
+    result = NarabeDev.Live.move(socket, Page, Page, params)
+
+    if match?({:ok, _}, result),
+      do: Phoenix.PubSub.broadcast_from(NarabeDev.PubSub, self(), "pages", :changed)
+
+    {:reply, Narabe.Live.reply(result), socket |> assign(last_move: params) |> load()}
+  end
+
+  def handle_info(:changed, socket), do: {:noreply, load(socket)}
+end
+
 defmodule NarabeDev.ResetController do
   use Phoenix.Controller, formats: [:html]
 
   def reset(conn, _params) do
     NarabeDev.Seeds.reset()
 
-    for topic <- ~w(tasks pages board),
+    for topic <- ~w(tasks pages board todos),
         do: Phoenix.PubSub.broadcast(NarabeDev.PubSub, topic, :changed)
 
     text(conn, "ok")
@@ -734,6 +1088,8 @@ defmodule NarabeDev.Router do
     live("/tree", NarabeDev.TreeLive)
     live("/board", NarabeDev.BoardLive)
     live("/picker", NarabeDev.PickerLive)
+    live("/group", NarabeDev.GroupLive)
+    live("/folders", NarabeDev.FoldersLive)
   end
 
   scope "/" do

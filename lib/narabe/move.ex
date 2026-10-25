@@ -11,6 +11,9 @@ defmodule Narabe.Move do
   what meanwhile. `after` wins over `before`; `index` is a last resort, for
   a neighbour that is gone.
 
+  A move from another list of the list's `group` says where the items came
+  from: `from` is that list's id (`"someday"`); it is nil within one list.
+
   The browser sends it to the list's `on_move` event:
 
       def handle_event("moved", params, socket) do
@@ -20,7 +23,7 @@ defmodule Narabe.Move do
   """
 
   @enforce_keys [:ids]
-  defstruct ids: [], parent: nil, after: nil, before: nil, index: nil
+  defstruct ids: [], parent: nil, after: nil, before: nil, index: nil, from: nil
 
   @type id :: term()
   @type t :: %__MODULE__{
@@ -28,7 +31,8 @@ defmodule Narabe.Move do
           parent: id() | nil,
           after: id() | nil,
           before: id() | nil,
-          index: non_neg_integer() | nil
+          index: non_neg_integer() | nil,
+          from: String.t() | nil
         }
 
   @doc """
@@ -53,9 +57,17 @@ defmodule Narabe.Move do
          {:ok, after_id} <- cast(params["after"], type),
          {:ok, before_id} <- cast(params["before"], type),
          {:ok, index} <- index(params["index"]),
+         {:ok, from} <- from(params["from"]),
          :ok <- distinct(ids, [after_id, before_id]) do
       {:ok,
-       %__MODULE__{ids: ids, parent: parent, after: after_id, before: before_id, index: index}}
+       %__MODULE__{
+         ids: ids,
+         parent: parent,
+         after: after_id,
+         before: before_id,
+         index: index,
+         from: from
+       }}
     end
   end
 
@@ -72,14 +84,18 @@ defmodule Narabe.Move do
 
   @doc """
   The params of a move, as the browser sends them: for `Narabe.Test` and
-  an agent's tool that moves items as a person would.
+  an agent's tool that moves items as a person would. `"from"` is there
+  only for a move from another list.
 
       iex> Narabe.Move.to_params(%Narabe.Move{ids: [42], after: 12})
       %{"v" => 1, "ids" => ["42"], "parent" => nil, "after" => "12", "before" => nil, "index" => nil}
+
+      iex> Narabe.Move.to_params(%Narabe.Move{ids: [42], parent: 3, index: 0, from: "someday"})
+      %{"v" => 1, "ids" => ["42"], "parent" => "3", "after" => nil, "before" => nil, "index" => 0, "from" => "someday"}
   """
   @spec to_params(t()) :: map()
   def to_params(%__MODULE__{} = move) do
-    %{
+    params = %{
       "v" => 1,
       "ids" => Enum.map(move.ids, &text/1),
       "parent" => text(move.parent),
@@ -87,6 +103,8 @@ defmodule Narabe.Move do
       "before" => text(move.before),
       "index" => move.index
     }
+
+    if move.from, do: Map.put(params, "from", move.from), else: params
   end
 
   defp text(nil), do: nil
@@ -133,6 +151,12 @@ defmodule Narabe.Move do
   defp index(nil), do: {:ok, nil}
   defp index(index) when is_integer(index) and index >= 0, do: {:ok, index}
   defp index(_other), do: {:error, :invalid_move}
+
+  # The id of the list the items came from: a list's id is text.
+  defp from(nil), do: {:ok, nil}
+  defp from(""), do: {:ok, nil}
+  defp from(from) when is_binary(from), do: {:ok, from}
+  defp from(_other), do: {:error, :invalid_move}
 
   # An item is not its own neighbour.
   defp distinct(ids, others) do

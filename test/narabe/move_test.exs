@@ -17,6 +17,14 @@ defmodule Narabe.MoveTest do
     assert {:error, :invalid_move} = Move.parse(%{"v" => 1, "ids" => ["3"], "before" => "3"}, :id)
   end
 
+  test "a move from another list of the group says that list's id" do
+    assert {:ok, %Move{from: "someday"}} =
+             Move.parse(%{"v" => 1, "ids" => ["3"], "from" => "someday"}, :id)
+
+    assert {:ok, %Move{from: nil}} = Move.parse(%{"v" => 1, "ids" => ["3"], "from" => ""}, :id)
+    assert {:error, :invalid_move} = Move.parse(%{"v" => 1, "ids" => ["3"], "from" => 7}, :id)
+  end
+
   test "a parent may have a moved item's id: a board's column is another table's row" do
     # (In a tree, Narabe.Ecto refuses a move into itself as :into_itself.)
     assert {:ok, %Move{ids: [3], parent: 3}} =
@@ -25,6 +33,8 @@ defmodule Narabe.MoveTest do
 
   test "params round-trip" do
     move = %Move{ids: [3], parent: 9, after: 4, before: nil, index: 1}
+    assert {:ok, ^move} = move |> Move.to_params() |> Move.parse(:id)
+    move = %Move{move | from: "someday"}
     assert {:ok, ^move} = move |> Move.to_params() |> Move.parse(:id)
     assert_raise ArgumentError, ~r/not a move/, fn -> Move.parse!(%{"ids" => [1]}) end
   end

@@ -40,6 +40,8 @@ end
   and renames in place. Its items may be rows of several tables, as
   folders and pages (`Narabe.Ecto.Mixed`). On a phone it can show one level at a time. A
   board moves cards within and across columns, and the columns too.
+  Lists, trees and boards of a `group` take each other's items: a task
+  to another project's list, a page into a folder of the sidebar.
 - **Moves by ids.** A move says "after 12, in 7", not "to index 3", so a
   screen a moment out of date still means what the person meant. The
   browser moves the items at once, and puts them back if the server says
@@ -60,7 +62,7 @@ end
   one person at a time, and an agent picks a card up and drags it as
   people watch.
 
-The bundle is 12 KB gzipped, the style sheet 4 KB.
+The bundle is 13 KB gzipped, the style sheet 4 KB.
 
 ## Install
 
@@ -139,6 +141,7 @@ order. See the [Database](guides/database.md) guide.
 * [Lists](guides/lists.md) - `sortable_list`, streams, selection, swipe actions.
 * [Trees](guides/trees.md) - nesting, depth, lazy children, filter, rename, phones, `tree_picker`.
 * [Boards](guides/boards.md) - columns and cards, kanban.
+* [Groups](guides/groups.md) - drags between lists, trees and boards.
 * [Database](guides/database.md) - `Narabe.Ecto`: keys, moves, trees, Postgres, MySQL and SQLite, benchmarks.
 * [Rules](guides/rules.md) - what may go where, in the browser and on the server.
 * [Collaboration](guides/collaboration.md) - who is moving what, with Issho; agents.

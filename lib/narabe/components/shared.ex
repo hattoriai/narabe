@@ -46,6 +46,20 @@ defmodule Narabe.Components.Shared do
         default: nil,
         doc: "why an item may not move (a string), or nil: a key or a function"
 
+      attr :group, :string,
+        default: nil,
+        doc:
+          "a group of lists, trees and boards whose items move between them: a drop in another list of the group sends that list's `on_move`"
+
+      attr :accept, :list,
+        default: nil,
+        doc: "the ids of the lists of the group this one takes items from; all of them by default"
+
+      attr :on_leave, :string,
+        default: nil,
+        doc:
+          "the event of items that moved to another list of the group, once its server kept them: `%{\"v\" => 1, \"ids\" => [...], \"to\" => list_id}`"
+
       attr :issho, :list,
         default: nil,
         doc:
