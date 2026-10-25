@@ -82,6 +82,41 @@ defmodule Narabe.ComponentsTest do
     assert c["onRename"] == "rename"
   end
 
+  test "a tree of several tables: ids that say their kind, the kinds for the rules" do
+    tree =
+      Narabe.Ecto.Mixed.new(
+        [
+          folder: [from: NarabeTest.Folder, parent: :parent_id],
+          document: [from: NarabeTest.Document, parent: :folder_id]
+        ],
+        parents: :folder
+      )
+
+    # As Narabe.Ecto.Mixed.items/2 gives them.
+    items = [
+      %{id: "folder:1", parent_id: nil, kind: "folder", record: %{name: "Docs"}},
+      %{id: "document:1", parent_id: "folder:1", kind: "document", record: %{name: "Intro"}},
+      %{id: "document:2", parent_id: nil, kind: "document", record: %{name: "Notes"}}
+    ]
+
+    assigns = %{items: items, rules: tree.rules}
+
+    html =
+      rendered_to_string(~H"""
+      <.tree id="files" items={@items} item_kind={:kind} item_label={& &1.record.name} rules={@rules} on_move="move" />
+      """)
+
+    assert attrs(html, "[data-narabe-item]", "data-id") == [
+             "folder:1",
+             "document:1",
+             "document:2"
+           ]
+
+    assert attrs(html, "[data-narabe-item]", "data-kind") == ["folder", "document", "document"]
+    assert attrs(html, "[data-narabe-item]", "data-parent") == ["folder:1"]
+    assert config(html)["rules"]["leaves"] == ["document"]
+  end
+
   test "a board: columns and their cards" do
     assigns = %{
       columns: [%{id: 1, name: "Todo"}, %{id: 2, name: "Done"}],

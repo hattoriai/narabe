@@ -9,6 +9,16 @@ and Narabe follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `Narabe.Ecto.Mixed`: a tree of several tables, as folders and the
+  pages in them. Each kind keeps its table, its position and its parent
+  field; a folder's children of every kind are one list in one order.
+  Ids in the tree say their kind (`"folder:3"`), so `<.tree>` takes the
+  items as `items/2` gives them, and `move/3` writes each moved row to
+  its own table, with the checks of a tree (never into itself, the
+  rules, `:max_depth` counting both kinds). `insert_position/4`,
+  `put_position/4` and `rebalance/3` place new rows among their siblings
+  of every kind. See the Trees guide, "A tree of several tables".
+
 - The Sumi theme follows Sumi's seven themes and their accents: a
   refused drop is rose where the accent is red's hue or near it (Ink,
   Paper, Lacquer), and rust in Silk, so that it does not look like a drop

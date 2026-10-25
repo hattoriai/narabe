@@ -46,7 +46,7 @@ defmodule NarabeTest.Databases do
 end
 
 defmodule NarabeTest.Migration do
-  @moduledoc "The tables of the tests: a board's cards, and a tree's pages."
+  @moduledoc "The tables of the tests: a board's cards, a tree's pages, and a tree of folders and documents."
   use Ecto.Migration
 
   import Narabe.Migration
@@ -73,6 +73,24 @@ defmodule NarabeTest.Migration do
     end
 
     create(index(:pages, [:parent_id, :position]))
+
+    # A tree of two tables (Narabe.Ecto.Mixed): folders in folders, and
+    # documents in folders.
+    create table(:folders) do
+      add(:name, :string)
+      add(:parent_id, references(:folders))
+      position(:position)
+    end
+
+    create(index(:folders, [:parent_id, :position]))
+
+    create table(:documents) do
+      add(:title, :string)
+      add(:folder_id, references(:folders))
+      position(:position)
+    end
+
+    create(index(:documents, [:folder_id, :position]))
   end
 end
 
@@ -114,4 +132,28 @@ defmodule NarabeTest.Page do
   end
 
   use Narabe.Ordered, group: :parent_id, tree: true, kind: :kind
+end
+
+defmodule NarabeTest.Folder do
+  @moduledoc false
+  use Ecto.Schema
+
+  schema "folders" do
+    field(:name, :string)
+    field(:position, :string)
+    belongs_to(:parent, NarabeTest.Folder)
+  end
+end
+
+defmodule NarabeTest.Document do
+  @moduledoc false
+  use Ecto.Schema
+
+  schema "documents" do
+    field(:title, :string)
+    field(:position, :string)
+    belongs_to(:folder, NarabeTest.Folder)
+  end
+
+  def changeset(document, attrs), do: Ecto.Changeset.cast(document, attrs, [:title, :folder_id])
 end

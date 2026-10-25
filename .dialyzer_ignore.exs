@@ -5,5 +5,6 @@
 # through Ecto's own struct type: a warning of Ecto's types, not of the call.
 [
   {"lib/narabe/test.ex", :unknown_function},
-  {"lib/narabe/ecto.ex", :call_without_opaque}
+  {"lib/narabe/ecto.ex", :call_without_opaque},
+  {"lib/narabe/ecto/mixed.ex", :call_without_opaque}
 ]
