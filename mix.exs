@@ -1,7 +1,7 @@
 defmodule Narabe.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.2.0"
   @source_url "https://github.com/hattoriai/narabe"
 
   # NARABE_OLDEST=1 resolves the oldest Phoenix and LiveView that Narabe

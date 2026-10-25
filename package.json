@@ -1,6 +1,6 @@
 {
   "name": "narabe",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "module": "./priv/static/narabe.esm.js",
   "main": "./priv/static/narabe.cjs.js",

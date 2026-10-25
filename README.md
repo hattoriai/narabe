@@ -73,7 +73,7 @@ database helpers).
 ```elixir
 def deps do
   [
-    {:narabe, "~> 0.1"}
+    {:narabe, "~> 0.2"}
   ]
 end
 ```

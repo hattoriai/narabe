@@ -7,6 +7,8 @@ and Narabe follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-25
+
 ### Added
 
 - Drags between lists: lists, trees and boards with the same `group`
@@ -44,7 +46,7 @@ and Narabe follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   palette, and Sumi's light themes other than Paper the dark one on a
   system in dark mode. A refused drop was below 3:1 on Smoke's columns.
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-24
 
 ### Added
 
