@@ -113,6 +113,7 @@ defmodule Narabe.MixProject do
         "guides/lists.md",
         "guides/trees.md",
         "guides/boards.md",
+        "guides/groups.md",
         "guides/database.md",
         "guides/rules.md",
         "guides/collaboration.md",
@@ -124,7 +125,7 @@ defmodule Narabe.MixProject do
       ],
       groups_for_extras: [
         Guides:
-          ~r{guides/(quickstart|lists|trees|boards|database|rules|collaboration|testing|theming)\.md},
+          ~r{guides/(quickstart|lists|trees|boards|groups|database|rules|collaboration|testing|theming)\.md},
         Reference: ["guides/accessibility.md", "guides/limits.md"]
       ],
       groups_for_modules: [

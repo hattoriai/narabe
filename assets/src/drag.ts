@@ -126,6 +126,11 @@ export class DragSession {
     this.frame = requestAnimationFrame(() => this.tick());
   }
 
+  /** The pointer is over another list of the group: its scroller scrolls near its edges. */
+  scrollIn(el: HTMLElement): void {
+    this.scroller = scrollParent(el);
+  }
+
   /** Where the dragged items' top left corner is: for a tree's depth. */
   get left(): number {
     return this.x - this.offsetX;

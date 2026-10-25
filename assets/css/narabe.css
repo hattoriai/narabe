@@ -409,6 +409,13 @@
   box-shadow: inset 0 0 0 2px var(--narabe-accent);
 }
 
+/* Another list of the group, where a drag from a list would land. */
+.narabe-receiving {
+  outline: 2px dashed color-mix(in oklab, var(--narabe-accent) 50%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--narabe-radius);
+}
+
 /* The copy that follows the pointer. */
 .narabe-ghost {
   position: fixed !important;

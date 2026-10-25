@@ -48,7 +48,7 @@ While an item is lifted:
 | → ← | a tree: one level deeper, one level up; a board: the next, the previous column |
 | Space, Enter | drop |
 | Escape | put it back |
-| Tab | put it back, and move on |
+| Tab, Shift+Tab | in a `group`: to the next, the previous list of it; else put it back, and move on |
 
 Focus that leaves the list puts a lifted item back. A list without
 `on_move`, or `readonly`, does not lift: Space toggles the selection
@@ -58,7 +58,8 @@ with `multiple`.
 
 A live region says what happens, in the words of the list's `locale`:
 
-* "Roadmap lifted. Arrows move it, Space drops it, Escape puts it back."
+* "Roadmap lifted. Arrows move it, Space drops it, Escape puts it back.",
+  and, in a `group`, "Tab takes it to another list."
 * "Roadmap, in Projects, 2 of 3" as it moves, and "Roadmap dropped, 2 of
   3".
 * "Roadmap is back in its place" when it is put back.

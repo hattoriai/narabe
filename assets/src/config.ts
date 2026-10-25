@@ -34,6 +34,14 @@ export interface Config {
   value?: string;
   /** Ids that a tree picker does not offer. */
   disabled?: string[];
+  /** The group of lists whose items move between them. */
+  group?: string;
+  /** The lists of the group this one takes items from; all of them when absent. */
+  accept?: string[];
+  /** A list's parent: what its moves say as `parent` (a project of a task list). */
+  parent?: string;
+  /** The event to this list's server when its items landed in another list of the group. */
+  onLeave?: string;
   /** With Issho (Narabe.Issho): the element of its room. */
   issho?: { target: string };
 }

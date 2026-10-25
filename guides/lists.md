@@ -146,7 +146,14 @@ nothing.
 ## Events in the page
 
 The list dispatches DOM events that bubble: `narabe:move` (its `detail`
-is the move sent) and `narabe:refused` (the server's error reply).
+is the move sent), `narabe:refused` (the server's error reply) and, in a
+`group`, `narabe:leave` (items that went to another list of it).
+
+## Between lists
+
+Lists, trees and boards with the same `group` take each other's items;
+a list's `parent` is what its moves say as their parent. See the
+[Groups](groups.md) guide.
 
 ## Without LiveView
 

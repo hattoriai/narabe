@@ -56,6 +56,27 @@ defmodule Narabe.ComponentsTest do
     assert config(html)["multiple"] == true
   end
 
+  test "lists of a group: the group, what each accepts, a list's parent, on_leave" do
+    assigns = %{tasks: [%{id: 1, title: "Write"}], cards: [], columns: [%{id: 7, name: "Done"}]}
+
+    html =
+      rendered_to_string(~H"""
+      <.sortable_list id="launch" items={@tasks} parent={3} group="tasks" accept={["board", :someday]} on_move="m" on_leave="left" />
+      <.board id="board" columns={@columns} cards={@cards} group="tasks" on_move="m" />
+      """)
+
+    launch = config(html, "#launch")
+    assert launch["group"] == "tasks"
+    assert launch["accept"] == ["board", "someday"]
+    assert launch["parent"] == "3"
+    assert launch["onLeave"] == "left"
+    board = config(html, "#board")
+    assert board["group"] == "tasks"
+    refute Map.has_key?(board, "accept")
+    refute Map.has_key?(board, "parent")
+    assert launch["messages"]["otherLists"]
+  end
+
   test "a tree: flat rows with levels, parents and the tree's aria" do
     assigns = %{
       items: [

@@ -38,8 +38,3 @@ moves and the same database helpers.
 
 Editing in a tree: Enter makes a sibling, Tab indents, as an outliner
 does (Kotoba's ground).
-
-## Drags between lists
-
-An item dragged from one list to another (a task to another project's
-list), as one move with the other list as its parent.

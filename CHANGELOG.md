@@ -9,6 +9,18 @@ and Narabe follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Drags between lists: lists, trees and boards with the same `group`
+  take each other's items, with a mouse, a finger and the keyboard (Tab
+  and Shift+Tab take a lifted item to the next list). The drop sends one
+  move to the list it lands in, to its own `phx-target`, with the list
+  the items came from as `"from"` (`Narabe.Move`'s `:from`); a list's
+  `parent` is the parent its moves say. `accept` names the lists a list
+  takes items from, and its rules hold for theirs. A refusal puts the
+  items back in both lists. `on_leave` (and `narabe:leave` in the page)
+  tells a list that its items stayed in another. `Narabe.Test.move/4`
+  takes `from:`, and `Narabe.Test.leave/4` sends `on_leave`. `mix dev`
+  has two pages of them (`/group`, `/folders`). See the Groups guide.
+
 - `Narabe.Ecto.Mixed`: a tree of several tables, as folders and the
   pages in them. Each kind keeps its table, its position and its parent
   field; a folder's children of every kind are one list in one order.

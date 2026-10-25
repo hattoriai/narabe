@@ -34,7 +34,8 @@ defmodule Narabe.Messages.Translations do
     "actions" => "Actions",
     "selectedOne" => "{n} selected",
     "selectedOther" => "{n} selected",
-    "here" => "Where it is now"
+    "here" => "Where it is now",
+    "otherLists" => "Tab takes it to another list."
   }
 
   @translations %{
@@ -67,7 +68,8 @@ defmodule Narabe.Messages.Translations do
       "actions" => "Ações",
       "selectedOne" => "{n} selecionado",
       "selectedOther" => "{n} selecionados",
-      "here" => "Onde está agora"
+      "here" => "Onde está agora",
+      "otherLists" => "Tab leva-o para outra lista."
     },
     "es" => %{
       "lifted" =>
@@ -99,7 +101,8 @@ defmodule Narabe.Messages.Translations do
       "actions" => "Acciones",
       "selectedOne" => "{n} seleccionado",
       "selectedOther" => "{n} seleccionados",
-      "here" => "Dónde está ahora"
+      "here" => "Dónde está ahora",
+      "otherLists" => "Tab lo lleva a otra lista."
     },
     "fr" => %{
       "lifted" => "{label} soulevé. Les flèches le déplacent, Espace le pose, Échap le remet.",
@@ -130,7 +133,8 @@ defmodule Narabe.Messages.Translations do
       "actions" => "Actions",
       "selectedOne" => "{n} sélectionné",
       "selectedOther" => "{n} sélectionnés",
-      "here" => "Là où il est"
+      "here" => "Là où il est",
+      "otherLists" => "Tab l’emmène dans une autre liste."
     },
     "de" => %{
       "lifted" =>
@@ -162,7 +166,8 @@ defmodule Narabe.Messages.Translations do
       "actions" => "Aktionen",
       "selectedOne" => "{n} ausgewählt",
       "selectedOther" => "{n} ausgewählt",
-      "here" => "Wo es jetzt ist"
+      "here" => "Wo es jetzt ist",
+      "otherLists" => "Tab bringt es in eine andere Liste."
     },
     "it" => %{
       "lifted" =>
@@ -194,7 +199,8 @@ defmodule Narabe.Messages.Translations do
       "actions" => "Azioni",
       "selectedOne" => "{n} selezionato",
       "selectedOther" => "{n} selezionati",
-      "here" => "Dove si trova ora"
+      "here" => "Dove si trova ora",
+      "otherLists" => "Tab lo porta in un’altra lista."
     },
     "nl" => %{
       "lifted" => "{label} opgepakt. Pijltjes verplaatsen, Spatie zet neer, Escape zet terug.",
@@ -225,7 +231,8 @@ defmodule Narabe.Messages.Translations do
       "actions" => "Acties",
       "selectedOne" => "{n} geselecteerd",
       "selectedOther" => "{n} geselecteerd",
-      "here" => "Waar het nu is"
+      "here" => "Waar het nu is",
+      "otherLists" => "Tab brengt het naar een andere lijst."
     },
     "ja" => %{
       "lifted" => "{label}を持ち上げました。矢印キーで移動、スペースで配置、Escapeで元に戻します。",
@@ -256,7 +263,8 @@ defmodule Narabe.Messages.Translations do
       "actions" => "操作",
       "selectedOne" => "{n}件選択",
       "selectedOther" => "{n}件選択",
-      "here" => "現在の場所"
+      "here" => "現在の場所",
+      "otherLists" => "Tabキーで別のリストへ移します。"
     }
   }
 
