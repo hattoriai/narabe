@@ -2,6 +2,18 @@
 
 ![Narabe — Lists, trees and boards for Phoenix](https://raw.githubusercontent.com/hattoriai/narabe/main/media/banner.png)
 
+<p>
+  <a href="https://hex.pm/packages/narabe">
+    <img alt="Hex Version" src="https://img.shields.io/hexpm/v/narabe.svg">
+  </a>
+  <a href="https://hexdocs.pm/narabe">
+    <img src="https://img.shields.io/badge/docs-hexdocs-blue" alt="HexDocs">
+  </a>
+  <a href="https://github.com/hattoriai/narabe/actions">
+    <img alt="CI Status" src="https://github.com/hattoriai/narabe/actions/workflows/ci.yml/badge.svg">
+  </a>
+</p>
+
 並べ (*narabe*): to line up, to put in order.
 
 Lists, trees and boards that people reorder, for Phoenix LiveView, with
