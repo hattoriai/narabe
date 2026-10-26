@@ -42,7 +42,8 @@ export default defineConfig({
     timezoneId: "Europe/Lisbon",
     // Nothing animates: a test sees each thing where it stays, and
     // never measures it on its way (the lists honour reduced motion).
-    reducedMotion: "reduce",
+    // Playwright takes it as a context option, not a fixture of its own.
+    contextOptions: { reducedMotion: "reduce" },
     // A failed test keeps its trace and a screenshot, in test-results/.
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
