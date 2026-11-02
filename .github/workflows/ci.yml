@@ -31,7 +31,7 @@ jobs:
       NARABE_MYSQL_URL: ecto://root:narabe@127.0.0.1/narabe_test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Erlang and Elixir exactly as in .tool-versions.
       - uses: erlef/setup-beam@v1
@@ -123,7 +123,7 @@ jobs:
       NARABE_MYSQL_URL: ecto://root:narabe@127.0.0.1/narabe_test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: erlef/setup-beam@v1
         id: beam
@@ -164,7 +164,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
@@ -191,7 +191,7 @@ jobs:
         browser: [chromium, firefox, webkit]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Erlang and Elixir exactly as in .tool-versions.
       - uses: erlef/setup-beam@v1
